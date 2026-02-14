@@ -3,324 +3,754 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>音声認識アプリ - Web Speech API</title>
+<title>VoiceScribe AI - AI音声認識・議事録プラットフォーム</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
-    background: #0f172a;
-    color: #e2e8f0;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
+/* ========== Reset & Base ========== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #111827;
+  --bg-card: #1a2236;
+  --bg-card-hover: #1e2a42;
+  --bg-input: #0f1729;
+  --border: #1e2d4a;
+  --border-hover: #2d4a7a;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-glow: rgba(59, 130, 246, 0.25);
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --purple: #8b5cf6;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
+  --transition: 0.2s ease;
+}
+html { scroll-behavior: smooth; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+button { cursor: pointer; font-family: inherit; }
 
-  header {
-    width: 100%;
-    padding: 24px;
-    text-align: center;
-    background: linear-gradient(135deg, #1e293b, #334155);
-    border-bottom: 1px solid #475569;
-  }
-  header h1 {
-    font-size: 24px;
-    font-weight: 700;
-    background: linear-gradient(90deg, #38bdf8, #818cf8);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  header p {
-    font-size: 13px;
-    color: #94a3b8;
-    margin-top: 4px;
-  }
+/* ========== Navigation ========== */
+.navbar {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 32px; height: 64px;
+  background: rgba(10, 14, 26, 0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 20px; font-weight: 700;
+}
+.nav-brand .logo {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: #fff;
+}
+.nav-brand span { background: linear-gradient(90deg, #60a5fa, #a78bfa);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.nav-links { display: flex; gap: 8px; align-items: center; }
+.nav-links a, .nav-links button {
+  padding: 8px 16px; border-radius: var(--radius-sm);
+  font-size: 14px; color: var(--text-secondary);
+  text-decoration: none; border: none; background: none;
+  transition: var(--transition);
+}
+.nav-links a:hover, .nav-links button:hover { color: #fff; background: rgba(255,255,255,0.05); }
+.btn-upgrade {
+  background: linear-gradient(135deg, var(--accent), var(--purple)) !important;
+  color: #fff !important; font-weight: 600;
+  border: none !important;
+}
+.btn-upgrade:hover { opacity: 0.9; }
 
-  .container {
-    width: 100%;
-    max-width: 720px;
-    padding: 24px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
+/* ========== Main Layout ========== */
+.app-layout {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 0;
+  min-height: calc(100vh - 64px);
+}
+@media (max-width: 1024px) {
+  .app-layout { grid-template-columns: 1fr; }
+  .sidebar { border-left: none !important; border-top: 1px solid var(--border); }
+}
 
-  /* Controls */
-  .controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    align-items: center;
-  }
-  .controls select, .controls button {
-    padding: 10px 16px;
-    border-radius: 8px;
-    border: 1px solid #475569;
-    background: #1e293b;
-    color: #e2e8f0;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .controls select:hover, .controls button:hover {
-    background: #334155;
-    border-color: #64748b;
-  }
-  .controls select:focus, .controls button:focus {
-    outline: none;
-    border-color: #38bdf8;
-    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3);
-  }
+/* ========== Main Panel ========== */
+.main-panel { padding: 28px 32px; display: flex; flex-direction: column; gap: 20px; }
 
-  /* Mic button */
-  .mic-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    padding: 32px 0;
-  }
+/* Controls Bar */
+.controls-bar {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+}
+.control-group { display: flex; align-items: center; gap: 8px; }
+.control-group label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+select, .input-field {
+  padding: 8px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg-input);
+  color: var(--text-primary); font-size: 13px; transition: var(--transition);
+}
+select:focus, .input-field:focus { outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow); }
+.toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle .slider {
+  position: absolute; inset: 0; background: var(--bg-input);
+  border: 1px solid var(--border); border-radius: 22px;
+  transition: var(--transition); cursor: pointer;
+}
+.toggle .slider::before {
+  content: ''; position: absolute; left: 3px; top: 3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--text-muted); transition: var(--transition);
+}
+.toggle input:checked + .slider { background: var(--accent); border-color: var(--accent); }
+.toggle input:checked + .slider::before { transform: translateX(18px); background: #fff; }
 
-  .mic-btn {
-    width: 96px;
-    height: 96px;
-    border-radius: 50%;
-    border: 3px solid #475569;
-    background: #1e293b;
-    color: #94a3b8;
-    font-size: 40px;
-    cursor: pointer;
-    transition: all 0.3s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-  }
-  .mic-btn:hover {
-    border-color: #38bdf8;
-    color: #38bdf8;
-    transform: scale(1.05);
-  }
-  .mic-btn.recording {
-    border-color: #ef4444;
-    color: #ef4444;
-    animation: pulse 1.5s ease-in-out infinite;
-    box-shadow: 0 0 30px rgba(239, 68, 68, 0.3);
-  }
+/* Recording Section */
+.recording-section {
+  display: flex; align-items: center; gap: 20px;
+  padding: 20px 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.mic-btn {
+  width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-muted); font-size: 24px;
+  transition: all 0.3s; display: flex;
+  align-items: center; justify-content: center;
+}
+.mic-btn:hover { border-color: var(--accent); color: var(--accent);
+  box-shadow: 0 0 20px var(--accent-glow); transform: scale(1.05); }
+.mic-btn.recording {
+  border-color: var(--danger); color: var(--danger);
+  animation: rec-pulse 1.5s ease-in-out infinite;
+}
+@keyframes rec-pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(239,68,68,0.2); }
+  50% { box-shadow: 0 0 30px rgba(239,68,68,0.5); }
+}
+.rec-info { flex: 1; }
+.rec-status { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.rec-status.active { color: var(--danger); }
+.rec-hint { font-size: 12px; color: var(--text-muted); }
+.rec-timer { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--text-muted); font-family: 'SF Mono', 'Fira Code', monospace; }
+.rec-timer.active { color: var(--text-primary); }
 
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); }
-    50% { box-shadow: 0 0 40px rgba(239, 68, 68, 0.5); }
-  }
+/* Visualizer */
+.visualizer {
+  height: 48px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.visualizer canvas { width: 100%; height: 100%; display: block; }
 
-  .status {
-    font-size: 14px;
-    color: #94a3b8;
-    min-height: 20px;
-  }
-  .status.recording {
-    color: #ef4444;
-    font-weight: 600;
-  }
+/* Interim */
+.interim-box {
+  min-height: 44px; padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 15px; color: var(--text-muted);
+  font-style: italic; word-break: break-word;
+}
+.interim-box:empty::before { content: 'リアルタイム認識がここに表示されます...'; }
 
-  /* Interim text */
-  .interim {
-    min-height: 48px;
-    padding: 12px 16px;
-    background: #1e293b;
-    border: 1px dashed #475569;
-    border-radius: 8px;
-    font-size: 16px;
-    color: #64748b;
-    font-style: italic;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
+/* Transcript */
+.transcript-panel { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+.transcript-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.transcript-toolbar h2 { font-size: 15px; font-weight: 600; }
+.toolbar-actions { display: flex; gap: 6px; }
+.btn-sm {
+  padding: 6px 12px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg-card);
+  color: var(--text-secondary); font-size: 12px;
+  transition: var(--transition);
+}
+.btn-sm:hover { background: var(--bg-card-hover); color: var(--text-primary); border-color: var(--border-hover); }
 
-  /* Transcript */
-  .transcript-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .transcript-header h2 {
-    font-size: 16px;
-    font-weight: 600;
-    color: #cbd5e1;
-  }
-  .transcript-actions {
-    display: flex;
-    gap: 8px;
-  }
-  .transcript-actions button {
-    padding: 6px 12px;
-    border-radius: 6px;
-    border: 1px solid #475569;
-    background: #1e293b;
-    color: #94a3b8;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .transcript-actions button:hover {
-    background: #334155;
-    color: #e2e8f0;
-  }
+.transcript-area {
+  flex: 1; min-height: 250px; max-height: 50vh; overflow-y: auto;
+  padding: 16px; background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.transcript-area::-webkit-scrollbar { width: 5px; }
+.transcript-area::-webkit-scrollbar-track { background: transparent; }
+.transcript-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.transcript-area:empty::before { content: '録音を開始すると認識結果がここに表示されます';
+  color: var(--text-muted); font-size: 14px; }
 
-  .transcript {
-    flex: 1;
-    min-height: 200px;
-    max-height: 400px;
-    overflow-y: auto;
-    padding: 16px;
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 8px;
-    font-size: 15px;
-    line-height: 1.8;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-  .transcript:empty::before {
-    content: '音声認識の結果がここに表示されます...';
-    color: #475569;
-  }
-  .transcript .entry {
-    padding: 8px 0;
-    border-bottom: 1px solid rgba(71, 85, 105, 0.3);
-  }
-  .transcript .entry:last-child {
-    border-bottom: none;
-  }
-  .transcript .timestamp {
-    font-size: 11px;
-    color: #64748b;
-    margin-right: 8px;
-  }
-  .transcript .confidence {
-    font-size: 11px;
-    color: #475569;
-    margin-left: 4px;
-  }
-  .transcript .confidence.high { color: #22c55e; }
-  .transcript .confidence.medium { color: #eab308; }
-  .transcript .confidence.low { color: #ef4444; }
+.entry { padding: 10px 0; border-bottom: 1px solid rgba(30,45,74,0.5); display: flex; gap: 10px; align-items: flex-start; }
+.entry:last-child { border-bottom: none; }
+.entry-time { font-size: 11px; color: var(--text-muted); white-space: nowrap; padding-top: 2px;
+  font-family: 'SF Mono', 'Fira Code', monospace; }
+.entry-text { flex: 1; font-size: 14px; line-height: 1.7; }
+.entry-conf { font-size: 10px; padding: 2px 6px; border-radius: 4px;
+  white-space: nowrap; font-weight: 600; }
+.conf-high { background: rgba(16,185,129,0.15); color: var(--success); }
+.conf-mid { background: rgba(245,158,11,0.15); color: var(--warning); }
+.conf-low { background: rgba(239,68,68,0.15); color: var(--danger); }
 
-  /* Scrollbar */
-  .transcript::-webkit-scrollbar { width: 6px; }
-  .transcript::-webkit-scrollbar-track { background: transparent; }
-  .transcript::-webkit-scrollbar-thumb {
-    background: #475569;
-    border-radius: 3px;
-  }
+/* ========== Sidebar (AI Panel) ========== */
+.sidebar {
+  border-left: 1px solid var(--border);
+  background: var(--bg-secondary);
+  display: flex; flex-direction: column;
+}
+.sidebar-tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+}
+.sidebar-tab {
+  flex: 1; padding: 14px 8px;
+  border: none; background: none;
+  color: var(--text-muted); font-size: 12px; font-weight: 600;
+  transition: var(--transition); position: relative;
+}
+.sidebar-tab:hover { color: var(--text-secondary); background: rgba(255,255,255,0.02); }
+.sidebar-tab.active { color: var(--accent); }
+.sidebar-tab.active::after {
+  content: ''; position: absolute; bottom: 0; left: 16px; right: 16px;
+  height: 2px; background: var(--accent); border-radius: 2px;
+}
+.sidebar-content { flex: 1; overflow-y: auto; padding: 20px; }
+.sidebar-content::-webkit-scrollbar { width: 4px; }
+.sidebar-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-  /* Unsupported banner */
-  .unsupported {
-    padding: 20px;
-    background: #451a03;
-    border: 1px solid #92400e;
-    border-radius: 8px;
-    text-align: center;
-    color: #fbbf24;
-    font-size: 14px;
-    line-height: 1.6;
-  }
+.ai-section { display: none; flex-direction: column; gap: 16px; }
+.ai-section.active { display: flex; }
 
-  /* Footer */
-  footer {
-    padding: 16px;
-    text-align: center;
-    font-size: 11px;
-    color: #475569;
-  }
+.ai-card {
+  padding: 16px; background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.ai-card h3 { font-size: 13px; font-weight: 600; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px; }
+.ai-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.7; }
+
+.btn-ai {
+  width: 100%; padding: 10px 16px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg-card);
+  color: var(--text-primary); font-size: 13px; font-weight: 500;
+  display: flex; align-items: center; gap: 8px;
+  transition: var(--transition);
+}
+.btn-ai:hover { background: var(--bg-card-hover); border-color: var(--border-hover); }
+.btn-ai .icon { font-size: 16px; }
+.btn-ai .badge {
+  margin-left: auto; font-size: 10px; padding: 2px 8px;
+  border-radius: 10px; font-weight: 600;
+}
+.badge-pro { background: linear-gradient(135deg, var(--accent), var(--purple)); color: #fff; }
+.badge-free { background: rgba(16,185,129,0.15); color: var(--success); }
+
+.ai-result {
+  padding: 14px; background: var(--bg-input);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 13px; color: var(--text-secondary); line-height: 1.8;
+  white-space: pre-wrap; word-break: break-word;
+  max-height: 300px; overflow-y: auto;
+}
+.ai-result:empty::before { content: 'AI分析結果がここに表示されます'; color: var(--text-muted); font-size: 12px; }
+
+/* TODO list */
+.todo-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 0; border-bottom: 1px solid rgba(30,45,74,0.3);
+}
+.todo-item:last-child { border-bottom: none; }
+.todo-check { margin-top: 2px; accent-color: var(--accent); cursor: pointer; }
+.todo-text { font-size: 13px; flex: 1; }
+.todo-text.done { text-decoration: line-through; color: var(--text-muted); }
+
+/* API Key Input */
+.api-key-section {
+  padding: 16px; background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.api-key-section h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.api-key-section p { font-size: 11px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.5; }
+.api-key-row { display: flex; gap: 6px; }
+.api-key-row input {
+  flex: 1; padding: 8px 10px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg-input);
+  color: var(--text-primary); font-size: 12px;
+  font-family: monospace;
+}
+.api-key-row input:focus { outline: none; border-color: var(--accent); }
+.btn-save-key {
+  padding: 8px 14px; border-radius: 6px;
+  border: none; background: var(--accent);
+  color: #fff; font-size: 12px; font-weight: 600;
+}
+.btn-save-key:hover { background: var(--accent-hover); }
+.key-status { font-size: 11px; margin-top: 6px; }
+.key-ok { color: var(--success); }
+.key-none { color: var(--warning); }
+
+/* Spinner */
+.spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ========== Pricing Modal ========== */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  width: 90%; max-width: 960px; max-height: 90vh; overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 16px; padding: 40px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.modal-close {
+  float: right; border: none; background: none;
+  color: var(--text-muted); font-size: 24px; cursor: pointer;
+  line-height: 1;
+}
+.modal-close:hover { color: var(--text-primary); }
+.modal h2 {
+  font-size: 28px; font-weight: 800; text-align: center; margin-bottom: 6px;
+  background: linear-gradient(90deg, #60a5fa, #a78bfa);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.modal .subtitle { text-align: center; color: var(--text-muted); font-size: 14px; margin-bottom: 32px; }
+
+.pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media (max-width: 768px) { .pricing-grid { grid-template-columns: 1fr; } }
+
+.plan-card {
+  padding: 28px 24px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--bg-card);
+  display: flex; flex-direction: column;
+  transition: var(--transition);
+}
+.plan-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+.plan-card.featured {
+  border-color: var(--accent);
+  box-shadow: 0 0 30px var(--accent-glow);
+  position: relative;
+}
+.plan-card.featured::before {
+  content: '人気No.1'; position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  padding: 4px 16px; border-radius: 20px;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  color: #fff; font-size: 11px; font-weight: 700;
+}
+.plan-name { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.plan-price { font-size: 36px; font-weight: 800; margin: 12px 0 4px; }
+.plan-price span { font-size: 14px; font-weight: 400; color: var(--text-muted); }
+.plan-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 20px; }
+.plan-features { list-style: none; flex: 1; margin-bottom: 24px; }
+.plan-features li {
+  font-size: 13px; padding: 6px 0; color: var(--text-secondary);
+  display: flex; align-items: center; gap: 8px;
+}
+.plan-features li::before { content: '✓'; color: var(--success); font-weight: 700; }
+.plan-features li.disabled { color: var(--text-muted); }
+.plan-features li.disabled::before { content: '—'; color: var(--text-muted); }
+.btn-plan {
+  padding: 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg-secondary);
+  color: var(--text-primary); font-size: 14px; font-weight: 600;
+  text-align: center; transition: var(--transition);
+}
+.btn-plan:hover { background: var(--bg-card-hover); }
+.btn-plan.primary {
+  border: none; background: linear-gradient(135deg, var(--accent), var(--purple));
+  color: #fff;
+}
+.btn-plan.primary:hover { opacity: 0.9; }
+
+/* ========== Unsupported ========== */
+.unsupported {
+  max-width: 500px; margin: 80px auto; padding: 32px;
+  background: #1c1007; border: 1px solid #92400e;
+  border-radius: var(--radius); text-align: center;
+  color: #fbbf24; font-size: 14px; line-height: 1.8;
+}
 </style>
 </head>
 <body>
 
-<header>
-  <h1>Web Speech API 音声認識</h1>
-  <p>ブラウザのWeb Speech APIを使ったリアルタイム音声認識アプリ</p>
-</header>
+<!-- ===== Navbar ===== -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="logo">V</div>
+    <span>VoiceScribe AI</span>
+  </div>
+  <div class="nav-links">
+    <a href="#" id="navUsage">使用状況</a>
+    <a href="#" id="navDocs">ドキュメント</a>
+    <button class="btn-upgrade" id="navPricing">Pro にアップグレード</button>
+  </div>
+</nav>
 
-<div class="container" id="app">
-  <!-- Filled by JS based on browser support -->
+<!-- ===== Pricing Modal ===== -->
+<div class="modal-overlay" id="pricingModal">
+  <div class="modal">
+    <button class="modal-close" id="modalClose">&times;</button>
+    <h2>料金プラン</h2>
+    <p class="subtitle">すべてのプランで14日間の無料トライアルをご利用いただけます</p>
+    <div class="pricing-grid">
+      <!-- Free -->
+      <div class="plan-card">
+        <div class="plan-name">Free</div>
+        <div class="plan-price">&yen;0<span> / 月</span></div>
+        <div class="plan-desc">個人利用・お試しに最適</div>
+        <ul class="plan-features">
+          <li>音声認識（月60分まで）</li>
+          <li>リアルタイム文字起こし</li>
+          <li>テキストコピー・ダウンロード</li>
+          <li>5言語対応</li>
+          <li class="disabled">AI要約・議事録生成</li>
+          <li class="disabled">TODO自動抽出</li>
+          <li class="disabled">AI誤変換修正</li>
+          <li class="disabled">チーム共有</li>
+        </ul>
+        <button class="btn-plan">現在のプラン</button>
+      </div>
+      <!-- Pro -->
+      <div class="plan-card featured">
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">&yen;1,980<span> / 月</span></div>
+        <div class="plan-desc">プロフェッショナル・ビジネスに</div>
+        <ul class="plan-features">
+          <li>音声認識（月600分）</li>
+          <li>リアルタイム文字起こし</li>
+          <li>テキストコピー・ダウンロード</li>
+          <li>10言語対応</li>
+          <li>AI要約・議事録生成</li>
+          <li>TODO自動抽出</li>
+          <li>AI誤変換修正</li>
+          <li class="disabled">チーム共有・管理コンソール</li>
+        </ul>
+        <button class="btn-plan primary">14日間無料で始める</button>
+      </div>
+      <!-- Enterprise -->
+      <div class="plan-card">
+        <div class="plan-name">Enterprise</div>
+        <div class="plan-price">&yen;4,980<span> / 月</span></div>
+        <div class="plan-desc">大規模チーム・組織向け</div>
+        <ul class="plan-features">
+          <li>音声認識（無制限）</li>
+          <li>リアルタイム文字起こし</li>
+          <li>テキストコピー・ダウンロード</li>
+          <li>全言語対応</li>
+          <li>AI要約・議事録生成</li>
+          <li>TODO自動抽出</li>
+          <li>AI誤変換修正</li>
+          <li>チーム共有・管理コンソール</li>
+        </ul>
+        <button class="btn-plan">お問い合わせ</button>
+      </div>
+    </div>
+  </div>
 </div>
 
-<footer>
-  Web Speech API | Chrome / Edge 推奨
-</footer>
+<!-- ===== App Container ===== -->
+<div id="app"></div>
 
 <script>
+// ============================================================
+//  VoiceScribe AI - Main Application
+// ============================================================
 const app = document.getElementById('app');
-
-// Check browser support
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 if (!SpeechRecognition) {
-  app.innerHTML = `
-    <div class="unsupported">
-      <p>お使いのブラウザはWeb Speech APIに対応していません。</p>
-      <p>Google Chrome または Microsoft Edge の最新版をご利用ください。</p>
-    </div>`;
+  app.innerHTML = `<div class="unsupported">
+    <p><strong>Web Speech API 非対応ブラウザ</strong></p>
+    <p>Google Chrome または Microsoft Edge の最新版をご利用ください。</p></div>`;
 } else {
-  init();
+  initApp();
 }
 
-function init() {
-  // Build UI
+// ---------- Pricing Modal ----------
+document.getElementById('navPricing').onclick = () => document.getElementById('pricingModal').classList.add('open');
+document.getElementById('modalClose').onclick = () => document.getElementById('pricingModal').classList.remove('open');
+document.getElementById('pricingModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
+
+// ============================================================
+function initApp() {
+  app.className = 'app-layout';
   app.innerHTML = `
-    <div class="controls">
-      <select id="langSelect">
-        <option value="ja-JP">日本語</option>
-        <option value="en-US">English (US)</option>
-        <option value="en-GB">English (UK)</option>
-        <option value="zh-CN">中文 (简体)</option>
-        <option value="zh-TW">中文 (繁體)</option>
-        <option value="ko-KR">한국어</option>
-        <option value="fr-FR">Français</option>
-        <option value="de-DE">Deutsch</option>
-        <option value="es-ES">Español</option>
-        <option value="pt-BR">Português</option>
-      </select>
-      <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#94a3b8;cursor:pointer;">
-        <input type="checkbox" id="continuousCheck" checked> 連続認識
-      </label>
-    </div>
-
-    <div class="mic-section">
-      <button class="mic-btn" id="micBtn" title="録音開始 / 停止">&#x1F3A4;</button>
-      <div class="status" id="status">マイクボタンを押して開始</div>
-    </div>
-
-    <div class="interim" id="interim"></div>
-
-    <div class="transcript-header">
-      <h2>認識結果</h2>
-      <div class="transcript-actions">
-        <button id="copyBtn" title="テキストをコピー">コピー</button>
-        <button id="downloadBtn" title="テキストファイルとして保存">保存</button>
-        <button id="clearBtn" title="認識結果をクリア">クリア</button>
+  <!-- ===== Main Panel ===== -->
+  <div class="main-panel">
+    <!-- Controls -->
+    <div class="controls-bar">
+      <div class="control-group">
+        <label>言語</label>
+        <select id="langSelect">
+          <option value="ja-JP">日本語</option>
+          <option value="en-US">English (US)</option>
+          <option value="en-GB">English (UK)</option>
+          <option value="zh-CN">中文 (简体)</option>
+          <option value="zh-TW">中文 (繁體)</option>
+          <option value="ko-KR">한국어</option>
+          <option value="fr-FR">Français</option>
+          <option value="de-DE">Deutsch</option>
+          <option value="es-ES">Español</option>
+          <option value="pt-BR">Português</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>連続認識</label>
+        <label class="toggle"><input type="checkbox" id="continuousCheck" checked><span class="slider"></span></label>
       </div>
     </div>
-    <div class="transcript" id="transcript"></div>
-  `;
 
-  // Elements
+    <!-- Recording -->
+    <div class="recording-section">
+      <button class="mic-btn" id="micBtn">&#x1F3A4;</button>
+      <div class="rec-info">
+        <div class="rec-status" id="recStatus">待機中</div>
+        <div class="rec-hint">クリックまたは <kbd>Space</kbd> で開始</div>
+      </div>
+      <div class="rec-timer" id="recTimer">00:00</div>
+    </div>
+
+    <!-- Visualizer -->
+    <div class="visualizer"><canvas id="vizCanvas"></canvas></div>
+
+    <!-- Interim -->
+    <div class="interim-box" id="interim"></div>
+
+    <!-- Transcript -->
+    <div class="transcript-panel">
+      <div class="transcript-toolbar">
+        <h2>文字起こし結果</h2>
+        <div class="toolbar-actions">
+          <button class="btn-sm" id="copyBtn">コピー</button>
+          <button class="btn-sm" id="downloadBtn">保存</button>
+          <button class="btn-sm" id="clearBtn">クリア</button>
+        </div>
+      </div>
+      <div class="transcript-area" id="transcript"></div>
+    </div>
+  </div>
+
+  <!-- ===== Sidebar ===== -->
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <button class="sidebar-tab active" data-tab="ai">AI分析</button>
+      <button class="sidebar-tab" data-tab="minutes">議事録</button>
+      <button class="sidebar-tab" data-tab="todo">TODO</button>
+      <button class="sidebar-tab" data-tab="settings">設定</button>
+    </div>
+    <div class="sidebar-content">
+
+      <!-- AI Tab -->
+      <div class="ai-section active" id="tab-ai">
+        <button class="btn-ai" id="btnSummarize">
+          <span class="icon">&#x1F4DD;</span> 要約を生成
+          <span class="badge badge-free">Free</span>
+        </button>
+        <button class="btn-ai" id="btnCorrect">
+          <span class="icon">&#x1F527;</span> 誤変換を修正
+          <span class="badge badge-pro">Pro</span>
+        </button>
+        <button class="btn-ai" id="btnPolish">
+          <span class="icon">&#x2728;</span> 文章を整形
+          <span class="badge badge-pro">Pro</span>
+        </button>
+        <button class="btn-ai" id="btnTranslate">
+          <span class="icon">&#x1F310;</span> 英語に翻訳
+          <span class="badge badge-pro">Pro</span>
+        </button>
+        <div class="ai-result" id="aiResult"></div>
+      </div>
+
+      <!-- Minutes Tab -->
+      <div class="ai-section" id="tab-minutes">
+        <div class="ai-card">
+          <h3>&#x1F4CB; 議事録生成</h3>
+          <p>録音内容から構造化された議事録を自動生成します。参加者、議題、決定事項、アクションアイテムを抽出します。</p>
+        </div>
+        <button class="btn-ai" id="btnMinutes">
+          <span class="icon">&#x1F4CB;</span> 議事録を生成
+          <span class="badge badge-pro">Pro</span>
+        </button>
+        <div class="ai-result" id="minutesResult"></div>
+      </div>
+
+      <!-- TODO Tab -->
+      <div class="ai-section" id="tab-todo">
+        <div class="ai-card">
+          <h3>&#x2705; TODO自動抽出</h3>
+          <p>会話内容からタスクやアクションアイテムをAIが自動抽出し、チェックリスト化します。</p>
+        </div>
+        <button class="btn-ai" id="btnExtractTodo">
+          <span class="icon">&#x2705;</span> TODOを抽出
+          <span class="badge badge-pro">Pro</span>
+        </button>
+        <div id="todoList"></div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div class="ai-section" id="tab-settings">
+        <div class="api-key-section">
+          <h3>&#x1F511; OpenAI API Key</h3>
+          <p>AI機能を利用するにはOpenAI APIキーを設定してください。キーはブラウザのローカルストレージに保存され、外部には送信されません。</p>
+          <div class="api-key-row">
+            <input type="password" id="apiKeyInput" placeholder="sk-...">
+            <button class="btn-save-key" id="saveKeyBtn">保存</button>
+          </div>
+          <div class="key-status" id="keyStatus"></div>
+        </div>
+        <div class="api-key-section" style="margin-top: 12px;">
+          <h3>&#x2699;&#xFE0F; AI モデル</h3>
+          <p>使用するAIモデルを選択できます。</p>
+          <select id="modelSelect" style="width:100%; margin-top:8px;">
+            <option value="gpt-4o-mini">GPT-4o mini（高速・低コスト）</option>
+            <option value="gpt-4o">GPT-4o（高精度）</option>
+            <option value="gpt-4.1-mini">GPT-4.1 mini</option>
+            <option value="gpt-4.1">GPT-4.1</option>
+          </select>
+        </div>
+      </div>
+
+    </div>
+  </div>`;
+
+  // ========== Element References ==========
   const micBtn = document.getElementById('micBtn');
-  const statusEl = document.getElementById('status');
+  const recStatus = document.getElementById('recStatus');
+  const recTimer = document.getElementById('recTimer');
   const interimEl = document.getElementById('interim');
   const transcriptEl = document.getElementById('transcript');
   const langSelect = document.getElementById('langSelect');
   const continuousCheck = document.getElementById('continuousCheck');
-  const copyBtn = document.getElementById('copyBtn');
-  const downloadBtn = document.getElementById('downloadBtn');
-  const clearBtn = document.getElementById('clearBtn');
+  const vizCanvas = document.getElementById('vizCanvas');
+  const vizCtx = vizCanvas.getContext('2d');
 
-  let recognition = null;
-  let isRecording = false;
-  let entries = [];
+  let recognition = null, isRecording = false, entries = [];
+  let timerInterval = null, recordingStart = 0;
+  let audioCtx = null, analyser = null, micStream = null, animFrameId = null;
 
+  // ========== Sidebar Tabs ==========
+  document.querySelectorAll('.sidebar-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.ai-section').forEach(s => s.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ========== API Key ==========
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  const keyStatus = document.getElementById('keyStatus');
+  const savedKey = localStorage.getItem('voicescribe_api_key');
+  if (savedKey) {
+    apiKeyInput.value = savedKey;
+    keyStatus.innerHTML = '<span class="key-ok">&#x2705; APIキー設定済み</span>';
+  } else {
+    keyStatus.innerHTML = '<span class="key-none">&#x26A0;&#xFE0F; 未設定</span>';
+  }
+  document.getElementById('saveKeyBtn').addEventListener('click', () => {
+    const key = apiKeyInput.value.trim();
+    if (key) {
+      localStorage.setItem('voicescribe_api_key', key);
+      keyStatus.innerHTML = '<span class="key-ok">&#x2705; 保存しました</span>';
+    } else {
+      localStorage.removeItem('voicescribe_api_key');
+      keyStatus.innerHTML = '<span class="key-none">&#x26A0;&#xFE0F; 未設定</span>';
+    }
+  });
+  function getApiKey() { return localStorage.getItem('voicescribe_api_key'); }
+  function getModel() { return document.getElementById('modelSelect').value; }
+
+  // ========== Audio Visualizer ==========
+  function resizeViz() {
+    const rect = vizCanvas.parentElement.getBoundingClientRect();
+    vizCanvas.width = rect.width;
+    vizCanvas.height = rect.height;
+  }
+  resizeViz();
+  window.addEventListener('resize', resizeViz);
+
+  function startVisualizer(stream) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    const source = audioCtx.createMediaStreamSource(stream);
+    source.connect(analyser);
+    const bufLen = analyser.frequencyBinCount;
+    const data = new Uint8Array(bufLen);
+
+    function draw() {
+      animFrameId = requestAnimationFrame(draw);
+      analyser.getByteFrequencyData(data);
+      const w = vizCanvas.width, h = vizCanvas.height;
+      vizCtx.fillStyle = '#1a2236';
+      vizCtx.fillRect(0, 0, w, h);
+      const barW = w / bufLen * 2;
+      for (let i = 0; i < bufLen; i++) {
+        const v = data[i] / 255;
+        const barH = v * h;
+        const hue = 220 + v * 60;
+        vizCtx.fillStyle = `hsla(${hue}, 80%, ${50 + v * 30}%, ${0.6 + v * 0.4})`;
+        vizCtx.fillRect(i * barW, h - barH, barW - 1, barH);
+      }
+    }
+    draw();
+  }
+  function stopVisualizer() {
+    if (animFrameId) cancelAnimationFrame(animFrameId);
+    if (audioCtx) audioCtx.close();
+    audioCtx = null; analyser = null;
+    vizCtx.fillStyle = '#1a2236';
+    vizCtx.fillRect(0, 0, vizCanvas.width, vizCanvas.height);
+  }
+
+  // ========== Timer ==========
+  function startTimer() {
+    recordingStart = Date.now();
+    timerInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - recordingStart) / 1000);
+      const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+      const s = String(elapsed % 60).padStart(2, '0');
+      recTimer.textContent = `${m}:${s}`;
+    }, 200);
+    recTimer.classList.add('active');
+  }
+  function stopTimer() {
+    clearInterval(timerInterval);
+    recTimer.classList.remove('active');
+  }
+
+  // ========== Speech Recognition ==========
   function createRecognition() {
     const rec = new SpeechRecognition();
     rec.lang = langSelect.value;
@@ -331,150 +761,279 @@ function init() {
     rec.onstart = () => {
       isRecording = true;
       micBtn.classList.add('recording');
-      statusEl.textContent = '認識中...';
-      statusEl.classList.add('recording');
+      recStatus.textContent = '認識中';
+      recStatus.classList.add('active');
     };
-
     rec.onresult = (event) => {
       let interim = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) {
-          const text = result[0].transcript;
-          const confidence = result[0].confidence;
-          addEntry(text, confidence);
+        const r = event.results[i];
+        if (r.isFinal) {
+          addEntry(r[0].transcript, r[0].confidence);
           interimEl.textContent = '';
         } else {
-          interim += result[0].transcript;
+          interim += r[0].transcript;
         }
       }
-      if (interim) {
-        interimEl.textContent = interim;
-      }
+      if (interim) interimEl.textContent = interim;
     };
-
     rec.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
-      if (event.error === 'no-speech') {
-        statusEl.textContent = '音声が検出されませんでした。もう一度お試しください。';
-      } else if (event.error === 'audio-capture') {
-        statusEl.textContent = 'マイクが見つかりません。マイクを接続してください。';
-      } else if (event.error === 'not-allowed') {
-        statusEl.textContent = 'マイクの使用が許可されていません。ブラウザの設定を確認してください。';
-      } else {
-        statusEl.textContent = `エラー: ${event.error}`;
-      }
-      statusEl.classList.remove('recording');
+      const msgs = {
+        'no-speech': '音声が検出されませんでした',
+        'audio-capture': 'マイクが見つかりません',
+        'not-allowed': 'マイクの使用が許可されていません',
+      };
+      recStatus.textContent = msgs[event.error] || `エラー: ${event.error}`;
+      recStatus.classList.remove('active');
     };
-
     rec.onend = () => {
-      // If continuous mode and still recording, restart
       if (isRecording && continuousCheck.checked) {
-        try {
-          rec.start();
-          return;
-        } catch (e) {
-          // fall through to stop
-        }
+        try { rec.start(); return; } catch(e) {}
       }
-      isRecording = false;
-      micBtn.classList.remove('recording');
-      statusEl.textContent = 'マイクボタンを押して開始';
-      statusEl.classList.remove('recording');
-      interimEl.textContent = '';
+      stopRecording();
     };
-
     return rec;
   }
 
   function addEntry(text, confidence) {
-    const now = new Date();
-    const ts = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const confPercent = Math.round(confidence * 100);
-    let confClass = 'high';
-    if (confPercent < 70) confClass = 'low';
-    else if (confPercent < 90) confClass = 'medium';
-
-    const entry = { text, confidence: confPercent, timestamp: ts };
-    entries.push(entry);
-
+    const ts = new Date().toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    const pct = Math.round(confidence * 100);
+    const cls = pct >= 90 ? 'conf-high' : pct >= 70 ? 'conf-mid' : 'conf-low';
+    entries.push({ text, confidence: pct, timestamp: ts });
     const div = document.createElement('div');
     div.className = 'entry';
-    div.innerHTML = `<span class="timestamp">${ts}</span>${escapeHtml(text)}<span class="confidence ${confClass}">(${confPercent}%)</span>`;
+    div.innerHTML = `<span class="entry-time">${ts}</span>
+      <span class="entry-text">${escapeHtml(text)}</span>
+      <span class="entry-conf ${cls}">${pct}%</span>`;
     transcriptEl.appendChild(div);
     transcriptEl.scrollTop = transcriptEl.scrollHeight;
   }
 
-  function escapeHtml(str) {
-    const d = document.createElement('div');
-    d.textContent = str;
-    return d.innerHTML;
-  }
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
+  async function startRecording() {
+    recognition = createRecognition();
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      startVisualizer(micStream);
+      recognition.start();
+      startTimer();
+    } catch(e) {
+      recStatus.textContent = 'マイクへのアクセスに失敗しました';
+    }
+  }
+  function stopRecording() {
+    isRecording = false;
+    if (recognition) recognition.stop();
+    micBtn.classList.remove('recording');
+    recStatus.textContent = '待機中';
+    recStatus.classList.remove('active');
+    interimEl.textContent = '';
+    stopTimer();
+    stopVisualizer();
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  }
   function toggleRecording() {
-    if (isRecording) {
-      isRecording = false;
-      if (recognition) {
-        recognition.stop();
-      }
-    } else {
-      recognition = createRecognition();
-      try {
-        recognition.start();
-      } catch (e) {
-        statusEl.textContent = 'エラー: 認識を開始できませんでした。';
-      }
-    }
+    if (isRecording) stopRecording(); else startRecording();
   }
 
-  // Event listeners
   micBtn.addEventListener('click', toggleRecording);
-
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); toggleRecording(); }
+  });
   langSelect.addEventListener('change', () => {
-    if (isRecording) {
-      isRecording = false;
-      if (recognition) recognition.stop();
-      setTimeout(() => {
-        toggleRecording();
-      }, 300);
-    }
+    if (isRecording) { stopRecording(); setTimeout(startRecording, 300); }
   });
 
-  copyBtn.addEventListener('click', () => {
+  // ========== Transcript Actions ==========
+  document.getElementById('copyBtn').addEventListener('click', () => {
     const text = entries.map(e => e.text).join('\n');
     if (!text) return;
     navigator.clipboard.writeText(text).then(() => {
-      copyBtn.textContent = 'コピー済';
-      setTimeout(() => { copyBtn.textContent = 'コピー'; }, 1500);
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = '完了'; setTimeout(() => btn.textContent = 'コピー', 1200);
     });
   });
-
-  downloadBtn.addEventListener('click', () => {
-    const lines = entries.map(e => `[${e.timestamp}] ${e.text} (${e.confidence}%)`);
-    const text = lines.join('\n');
-    if (!text) return;
-    const blob = new Blob([text], { type: 'text/plain; charset=utf-8' });
-    const url = URL.createObjectURL(blob);
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    const lines = entries.map(e => `[${e.timestamp}] ${e.text} (信頼度: ${e.confidence}%)`);
+    if (!lines.length) return;
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain; charset=utf-8' });
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `speech_${new Date().toISOString().slice(0, 10)}.txt`;
+    a.href = URL.createObjectURL(blob);
+    a.download = `voicescribe_${new Date().toISOString().slice(0,10)}.txt`;
     a.click();
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(a.href);
   });
-
-  clearBtn.addEventListener('click', () => {
+  document.getElementById('clearBtn').addEventListener('click', () => {
     entries = [];
     transcriptEl.innerHTML = '';
     interimEl.textContent = '';
+    document.getElementById('aiResult').textContent = '';
+    document.getElementById('minutesResult').textContent = '';
+    document.getElementById('todoList').innerHTML = '';
   });
 
-  // Keyboard shortcut
-  document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && e.target === document.body) {
-      e.preventDefault();
-      toggleRecording();
+  // ========== AI API Calls ==========
+  function getTranscriptText() { return entries.map(e => e.text).join('\n'); }
+
+  async function callAI(systemPrompt, userContent, resultEl) {
+    const key = getApiKey();
+    if (!key) {
+      resultEl.textContent = 'APIキーが設定されていません。「設定」タブからOpenAI APIキーを入力してください。';
+      return;
+    }
+    const text = getTranscriptText();
+    if (!text.trim()) {
+      resultEl.textContent = '文字起こしデータがありません。先に録音を行ってください。';
+      return;
+    }
+    resultEl.innerHTML = '<span class="spinner"></span> AI分析中...';
+    try {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        body: JSON.stringify({
+          model: getModel(),
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userContent + '\n\n---\n' + text }
+          ],
+          temperature: 0.3,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      resultEl.textContent = data.choices[0].message.content;
+    } catch(e) {
+      resultEl.textContent = `エラー: ${e.message}`;
+    }
+  }
+
+  // --- Summarize ---
+  document.getElementById('btnSummarize').addEventListener('click', () => {
+    callAI(
+      'あなたは優秀な要約アシスタントです。与えられた文字起こしテキストを簡潔に要約してください。重要なポイントを箇条書きで整理してください。',
+      '以下の音声文字起こしを要約してください:',
+      document.getElementById('aiResult')
+    );
+  });
+
+  // --- Correct ---
+  document.getElementById('btnCorrect').addEventListener('click', () => {
+    callAI(
+      'あなたは日本語の校正アシスタントです。音声認識による誤変換や誤字を修正してください。修正箇所は【修正前→修正後】の形式で示した後、修正済みの全文を出力してください。',
+      '以下の音声認識テキストの誤変換を修正してください:',
+      document.getElementById('aiResult')
+    );
+  });
+
+  // --- Polish ---
+  document.getElementById('btnPolish').addEventListener('click', () => {
+    callAI(
+      'あなたは文章整形アシスタントです。口語的な文字起こしテキストを、読みやすい書き言葉に整形してください。意味は変えずに、文法的に正しく、段落分けされた文章にしてください。',
+      '以下の文字起こしテキストを整形してください:',
+      document.getElementById('aiResult')
+    );
+  });
+
+  // --- Translate ---
+  document.getElementById('btnTranslate').addEventListener('click', () => {
+    callAI(
+      'You are a professional translator. Translate the given transcript into natural, fluent English. Maintain the original meaning and tone.',
+      'Translate the following transcript into English:',
+      document.getElementById('aiResult')
+    );
+  });
+
+  // --- Minutes ---
+  document.getElementById('btnMinutes').addEventListener('click', () => {
+    callAI(
+      `あなたは議事録作成アシスタントです。以下のフォーマットで議事録を生成してください:
+
+# 議事録
+- 日時: (今日の日付)
+- 参加者: (推測できれば記載)
+
+## 議題・概要
+(主な話題を箇条書き)
+
+## 詳細
+(議論の流れを段落で記述)
+
+## 決定事項
+(決まったことを箇条書き)
+
+## アクションアイテム
+(誰が何をいつまでにやるか)
+
+## 次回予定
+(言及があれば記載)`,
+      '以下の文字起こしから議事録を生成してください:',
+      document.getElementById('minutesResult')
+    );
+  });
+
+  // --- TODO ---
+  document.getElementById('btnExtractTodo').addEventListener('click', async () => {
+    const key = getApiKey();
+    const todoList = document.getElementById('todoList');
+    if (!key) {
+      todoList.innerHTML = '<p style="font-size:12px;color:var(--warning);">APIキーが設定されていません。</p>';
+      return;
+    }
+    const text = getTranscriptText();
+    if (!text.trim()) {
+      todoList.innerHTML = '<p style="font-size:12px;color:var(--text-muted);">文字起こしデータがありません。</p>';
+      return;
+    }
+    todoList.innerHTML = '<span class="spinner"></span> TODO抽出中...';
+    try {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        body: JSON.stringify({
+          model: getModel(),
+          messages: [
+            { role: 'system', content: '会話内容からタスク・アクションアイテム・TODOを抽出し、JSON配列で返してください。各要素は {"task": "タスク内容", "assignee": "担当者(不明なら空文字)", "priority": "high/medium/low"} の形式です。JSONのみ出力してください。' },
+            { role: 'user', content: text }
+          ],
+          temperature: 0.2,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      let content = data.choices[0].message.content.trim();
+      // Strip markdown code fences if present
+      content = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+      const todos = JSON.parse(content);
+      renderTodos(todos);
+    } catch(e) {
+      todoList.innerHTML = `<p style="font-size:12px;color:var(--danger);">エラー: ${escapeHtml(e.message)}</p>`;
     }
   });
+
+  function renderTodos(todos) {
+    const todoList = document.getElementById('todoList');
+    if (!todos.length) { todoList.innerHTML = '<p style="font-size:12px;color:var(--text-muted);">TODOが見つかりませんでした。</p>'; return; }
+    const priorityColors = { high: 'var(--danger)', medium: 'var(--warning)', low: 'var(--success)' };
+    todoList.innerHTML = '<div class="ai-card"><h3>&#x2705; 抽出されたTODO</h3>' +
+      todos.map((t, i) => `
+        <div class="todo-item">
+          <input type="checkbox" class="todo-check" data-idx="${i}">
+          <span class="todo-text">${escapeHtml(t.task)}${t.assignee ? ` <span style="color:var(--accent);font-size:11px;">@${escapeHtml(t.assignee)}</span>` : ''}</span>
+          <span style="font-size:10px;color:${priorityColors[t.priority] || 'var(--text-muted)'};font-weight:600;">${(t.priority || '').toUpperCase()}</span>
+        </div>`).join('') +
+      '</div>';
+    todoList.querySelectorAll('.todo-check').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const textEl = cb.parentElement.querySelector('.todo-text');
+        textEl.classList.toggle('done', cb.checked);
+      });
+    });
+  }
 }
 </script>
 </body>
