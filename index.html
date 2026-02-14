@@ -3,377 +3,479 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gravity Particle Simulator</title>
+<title>音声認識アプリ - Web Speech API</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #000;
-    overflow: hidden;
-    font-family: 'Segoe UI', sans-serif;
-    color: #fff;
-    user-select: none;
+    font-family: 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
-  canvas { display: block; }
-  #ui {
-    position: fixed;
-    top: 16px;
-    left: 16px;
-    z-index: 10;
-    background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    padding: 16px;
-    min-width: 220px;
-    transition: opacity 0.3s;
+
+  header {
+    width: 100%;
+    padding: 24px;
+    text-align: center;
+    background: linear-gradient(135deg, #1e293b, #334155);
+    border-bottom: 1px solid #475569;
   }
-  #ui h1 {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 12px;
-    background: linear-gradient(90deg, #ff6fd8, #3813c2);
+  header h1 {
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(90deg, #38bdf8, #818cf8);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  .control { margin-bottom: 10px; }
-  .control label {
-    display: block;
-    font-size: 11px;
-    color: #aaa;
-    margin-bottom: 4px;
+  header p {
+    font-size: 13px;
+    color: #94a3b8;
+    margin-top: 4px;
   }
-  .control input[type="range"] {
+
+  .container {
     width: 100%;
-    accent-color: #ff6fd8;
+    max-width: 720px;
+    padding: 24px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
   }
-  .control select, .control button {
-    width: 100%;
-    padding: 6px 8px;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
+
+  /* Controls */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+  .controls select, .controls button {
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid #475569;
+    background: #1e293b;
+    color: #e2e8f0;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .controls select:hover, .controls button:hover {
+    background: #334155;
+    border-color: #64748b;
+  }
+  .controls select:focus, .controls button:focus {
+    outline: none;
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3);
+  }
+
+  /* Mic button */
+  .mic-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 32px 0;
+  }
+
+  .mic-btn {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    border: 3px solid #475569;
+    background: #1e293b;
+    color: #94a3b8;
+    font-size: 40px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .mic-btn:hover {
+    border-color: #38bdf8;
+    color: #38bdf8;
+    transform: scale(1.05);
+  }
+  .mic-btn.recording {
+    border-color: #ef4444;
+    color: #ef4444;
+    animation: pulse 1.5s ease-in-out infinite;
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.3);
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); }
+    50% { box-shadow: 0 0 40px rgba(239, 68, 68, 0.5); }
+  }
+
+  .status {
+    font-size: 14px;
+    color: #94a3b8;
+    min-height: 20px;
+  }
+  .status.recording {
+    color: #ef4444;
+    font-weight: 600;
+  }
+
+  /* Interim text */
+  .interim {
+    min-height: 48px;
+    padding: 12px 16px;
+    background: #1e293b;
+    border: 1px dashed #475569;
+    border-radius: 8px;
+    font-size: 16px;
+    color: #64748b;
+    font-style: italic;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* Transcript */
+  .transcript-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .transcript-header h2 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #cbd5e1;
+  }
+  .transcript-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .transcript-actions button {
+    padding: 6px 12px;
     border-radius: 6px;
-    color: #fff;
+    border: 1px solid #475569;
+    background: #1e293b;
+    color: #94a3b8;
     font-size: 12px;
     cursor: pointer;
+    transition: all 0.2s;
   }
-  .control button:hover { background: rgba(255,255,255,0.15); }
-  #stats {
-    position: fixed;
-    bottom: 16px;
-    left: 16px;
-    font-size: 11px;
-    color: #555;
-    z-index: 10;
+  .transcript-actions button:hover {
+    background: #334155;
+    color: #e2e8f0;
   }
-  #help {
-    position: fixed;
-    bottom: 16px;
-    right: 16px;
+
+  .transcript {
+    flex: 1;
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 16px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    font-size: 15px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .transcript:empty::before {
+    content: '音声認識の結果がここに表示されます...';
+    color: #475569;
+  }
+  .transcript .entry {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+  }
+  .transcript .entry:last-child {
+    border-bottom: none;
+  }
+  .transcript .timestamp {
     font-size: 11px;
-    color: #666;
-    text-align: right;
-    z-index: 10;
+    color: #64748b;
+    margin-right: 8px;
+  }
+  .transcript .confidence {
+    font-size: 11px;
+    color: #475569;
+    margin-left: 4px;
+  }
+  .transcript .confidence.high { color: #22c55e; }
+  .transcript .confidence.medium { color: #eab308; }
+  .transcript .confidence.low { color: #ef4444; }
+
+  /* Scrollbar */
+  .transcript::-webkit-scrollbar { width: 6px; }
+  .transcript::-webkit-scrollbar-track { background: transparent; }
+  .transcript::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 3px;
+  }
+
+  /* Unsupported banner */
+  .unsupported {
+    padding: 20px;
+    background: #451a03;
+    border: 1px solid #92400e;
+    border-radius: 8px;
+    text-align: center;
+    color: #fbbf24;
+    font-size: 14px;
     line-height: 1.6;
+  }
+
+  /* Footer */
+  footer {
+    padding: 16px;
+    text-align: center;
+    font-size: 11px;
+    color: #475569;
   }
 </style>
 </head>
 <body>
-<canvas id="canvas"></canvas>
 
-<div id="ui">
-  <h1>Gravity Particles</h1>
-  <div class="control">
-    <label>パーティクル数: <span id="countLabel">500</span></label>
-    <input type="range" id="countSlider" min="100" max="3000" value="500" step="50">
-  </div>
-  <div class="control">
-    <label>重力の強さ: <span id="gravLabel">1.0</span></label>
-    <input type="range" id="gravSlider" min="0.1" max="5" value="1" step="0.1">
-  </div>
-  <div class="control">
-    <label>トレイル長: <span id="trailLabel">0.92</span></label>
-    <input type="range" id="trailSlider" min="0" max="0.98" value="0.92" step="0.01">
-  </div>
-  <div class="control">
-    <label>カラーモード</label>
-    <select id="colorMode">
-      <option value="velocity">速度</option>
-      <option value="rainbow">レインボー</option>
-      <option value="distance">距離</option>
-      <option value="fire">ファイア</option>
-      <option value="ocean">オーシャン</option>
-    </select>
-  </div>
-  <div class="control">
-    <button id="resetBtn">リセット</button>
-  </div>
-  <div class="control">
-    <button id="explosionBtn">💥 爆発</button>
-  </div>
-  <div class="control">
-    <button id="vortexBtn">🌀 渦</button>
-  </div>
+<header>
+  <h1>Web Speech API 音声認識</h1>
+  <p>ブラウザのWeb Speech APIを使ったリアルタイム音声認識アプリ</p>
+</header>
+
+<div class="container" id="app">
+  <!-- Filled by JS based on browser support -->
 </div>
 
-<div id="stats"></div>
-<div id="help">
-  クリック: 引力 ｜ 右クリック: 斥力<br>
-  スクロール: 重力調整 ｜ スペース: 一時停止
-</div>
+<footer>
+  Web Speech API | Chrome / Edge 推奨
+</footer>
 
 <script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+const app = document.getElementById('app');
 
-let W, H;
-function resize() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-}
-resize();
-window.addEventListener('resize', resize);
+// Check browser support
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-// State
-let particles = [];
-let attractors = [];
-let paused = false;
-let time = 0;
-let vortexMode = false;
-
-// Settings
-const settings = {
-  count: 500,
-  gravity: 1.0,
-  trail: 0.92,
-  colorMode: 'velocity',
-};
-
-// UI bindings
-const countSlider = document.getElementById('countSlider');
-const gravSlider = document.getElementById('gravSlider');
-const trailSlider = document.getElementById('trailSlider');
-const colorMode = document.getElementById('colorMode');
-
-countSlider.addEventListener('input', e => {
-  settings.count = +e.target.value;
-  document.getElementById('countLabel').textContent = settings.count;
-  initParticles();
-});
-gravSlider.addEventListener('input', e => {
-  settings.gravity = +e.target.value;
-  document.getElementById('gravLabel').textContent = settings.gravity.toFixed(1);
-});
-trailSlider.addEventListener('input', e => {
-  settings.trail = +e.target.value;
-  document.getElementById('trailLabel').textContent = settings.trail.toFixed(2);
-});
-colorMode.addEventListener('change', e => {
-  settings.colorMode = e.target.value;
-});
-document.getElementById('resetBtn').addEventListener('click', initParticles);
-document.getElementById('explosionBtn').addEventListener('click', explosion);
-document.getElementById('vortexBtn').addEventListener('click', () => { vortexMode = !vortexMode; });
-
-// Particle
-function createParticle() {
-  const angle = Math.random() * Math.PI * 2;
-  const speed = Math.random() * 0.5;
-  return {
-    x: Math.random() * W,
-    y: Math.random() * H,
-    vx: Math.cos(angle) * speed,
-    vy: Math.sin(angle) * speed,
-    life: 1,
-    hue: Math.random() * 360,
-    size: 1 + Math.random() * 2,
-  };
+if (!SpeechRecognition) {
+  app.innerHTML = `
+    <div class="unsupported">
+      <p>お使いのブラウザはWeb Speech APIに対応していません。</p>
+      <p>Google Chrome または Microsoft Edge の最新版をご利用ください。</p>
+    </div>`;
+} else {
+  init();
 }
 
-function initParticles() {
-  particles = [];
-  for (let i = 0; i < settings.count; i++) {
-    particles.push(createParticle());
-  }
-}
-initParticles();
+function init() {
+  // Build UI
+  app.innerHTML = `
+    <div class="controls">
+      <select id="langSelect">
+        <option value="ja-JP">日本語</option>
+        <option value="en-US">English (US)</option>
+        <option value="en-GB">English (UK)</option>
+        <option value="zh-CN">中文 (简体)</option>
+        <option value="zh-TW">中文 (繁體)</option>
+        <option value="ko-KR">한국어</option>
+        <option value="fr-FR">Français</option>
+        <option value="de-DE">Deutsch</option>
+        <option value="es-ES">Español</option>
+        <option value="pt-BR">Português</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#94a3b8;cursor:pointer;">
+        <input type="checkbox" id="continuousCheck" checked> 連続認識
+      </label>
+    </div>
 
-// Mouse
-let mouse = { x: W / 2, y: H / 2, down: false, right: false };
-canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
-canvas.addEventListener('mousedown', e => {
-  e.preventDefault();
-  if (e.button === 2) mouse.right = true;
-  else mouse.down = true;
-});
-canvas.addEventListener('mouseup', e => {
-  if (e.button === 2) mouse.right = false;
-  else mouse.down = false;
-});
-canvas.addEventListener('contextmenu', e => e.preventDefault());
-canvas.addEventListener('wheel', e => {
-  settings.gravity = Math.max(0.1, Math.min(5, settings.gravity + e.deltaY * -0.002));
-  gravSlider.value = settings.gravity;
-  document.getElementById('gravLabel').textContent = settings.gravity.toFixed(1);
-});
+    <div class="mic-section">
+      <button class="mic-btn" id="micBtn" title="録音開始 / 停止">&#x1F3A4;</button>
+      <div class="status" id="status">マイクボタンを押して開始</div>
+    </div>
 
-// Touch
-canvas.addEventListener('touchstart', e => { e.preventDefault(); mouse.down = true; mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; });
-canvas.addEventListener('touchmove', e => { e.preventDefault(); mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; });
-canvas.addEventListener('touchend', () => { mouse.down = false; });
+    <div class="interim" id="interim"></div>
 
-// Keyboard
-window.addEventListener('keydown', e => {
-  if (e.code === 'Space') { e.preventDefault(); paused = !paused; }
-});
+    <div class="transcript-header">
+      <h2>認識結果</h2>
+      <div class="transcript-actions">
+        <button id="copyBtn" title="テキストをコピー">コピー</button>
+        <button id="downloadBtn" title="テキストファイルとして保存">保存</button>
+        <button id="clearBtn" title="認識結果をクリア">クリア</button>
+      </div>
+    </div>
+    <div class="transcript" id="transcript"></div>
+  `;
 
-function explosion() {
-  const cx = W / 2, cy = H / 2;
-  for (const p of particles) {
-    const dx = p.x - cx;
-    const dy = p.y - cy;
-    const dist = Math.sqrt(dx * dx + dy * dy) + 1;
-    const force = 20 / dist * 50;
-    p.vx += (dx / dist) * force;
-    p.vy += (dy / dist) * force;
-  }
-}
+  // Elements
+  const micBtn = document.getElementById('micBtn');
+  const statusEl = document.getElementById('status');
+  const interimEl = document.getElementById('interim');
+  const transcriptEl = document.getElementById('transcript');
+  const langSelect = document.getElementById('langSelect');
+  const continuousCheck = document.getElementById('continuousCheck');
+  const copyBtn = document.getElementById('copyBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const clearBtn = document.getElementById('clearBtn');
 
-// Color
-function getColor(p, i) {
-  const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-  const dx = p.x - W / 2;
-  const dy = p.y - H / 2;
-  const dist = Math.sqrt(dx * dx + dy * dy);
+  let recognition = null;
+  let isRecording = false;
+  let entries = [];
 
-  switch (settings.colorMode) {
-    case 'velocity': {
-      const hue = Math.min(speed * 20, 1) * 270;
-      return `hsla(${hue}, 100%, ${50 + speed * 10}%, ${0.7 + speed * 0.1})`;
-    }
-    case 'rainbow': {
-      const hue = (i / particles.length * 360 + time * 0.5) % 360;
-      return `hsla(${hue}, 85%, 60%, 0.8)`;
-    }
-    case 'distance': {
-      const hue = (dist / Math.max(W, H)) * 270;
-      return `hsla(${hue}, 90%, 55%, 0.8)`;
-    }
-    case 'fire': {
-      const t = Math.min(speed * 15, 1);
-      const r = 255;
-      const g = Math.floor(t * 180);
-      const b = Math.floor(t * t * 60);
-      return `rgba(${r},${g},${b},${0.6 + t * 0.3})`;
-    }
-    case 'ocean': {
-      const t = Math.min(speed * 15, 1);
-      const r = Math.floor(t * 100);
-      const g = Math.floor(100 + t * 155);
-      const b = 200 + Math.floor(t * 55);
-      return `rgba(${r},${g},${b},${0.6 + t * 0.3})`;
-    }
-    default:
-      return '#fff';
-  }
-}
+  function createRecognition() {
+    const rec = new SpeechRecognition();
+    rec.lang = langSelect.value;
+    rec.continuous = continuousCheck.checked;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
 
-// Update
-function update() {
-  if (paused) return;
-  time++;
+    rec.onstart = () => {
+      isRecording = true;
+      micBtn.classList.add('recording');
+      statusEl.textContent = '認識中...';
+      statusEl.classList.add('recording');
+    };
 
-  for (let i = 0; i < particles.length; i++) {
-    const p = particles[i];
+    rec.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          const text = result[0].transcript;
+          const confidence = result[0].confidence;
+          addEntry(text, confidence);
+          interimEl.textContent = '';
+        } else {
+          interim += result[0].transcript;
+        }
+      }
+      if (interim) {
+        interimEl.textContent = interim;
+      }
+    };
 
-    // Mouse gravity
-    if (mouse.down || mouse.right) {
-      const dx = mouse.x - p.x;
-      const dy = mouse.y - p.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) + 10;
-      const force = settings.gravity * 300 / (dist * dist);
-      const sign = mouse.right ? -1 : 1;
-      p.vx += sign * (dx / dist) * force;
-      p.vy += sign * (dy / dist) * force;
-    }
+    rec.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      if (event.error === 'no-speech') {
+        statusEl.textContent = '音声が検出されませんでした。もう一度お試しください。';
+      } else if (event.error === 'audio-capture') {
+        statusEl.textContent = 'マイクが見つかりません。マイクを接続してください。';
+      } else if (event.error === 'not-allowed') {
+        statusEl.textContent = 'マイクの使用が許可されていません。ブラウザの設定を確認してください。';
+      } else {
+        statusEl.textContent = `エラー: ${event.error}`;
+      }
+      statusEl.classList.remove('recording');
+    };
 
-    // Vortex
-    if (vortexMode) {
-      const dx = W / 2 - p.x;
-      const dy = H / 2 - p.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) + 10;
-      const force = settings.gravity * 0.5 / dist;
-      // Tangential + radial
-      p.vx += (-dy / dist) * force + (dx / dist) * force * 0.3;
-      p.vy += (dx / dist) * force + (dy / dist) * force * 0.3;
-    }
+    rec.onend = () => {
+      // If continuous mode and still recording, restart
+      if (isRecording && continuousCheck.checked) {
+        try {
+          rec.start();
+          return;
+        } catch (e) {
+          // fall through to stop
+        }
+      }
+      isRecording = false;
+      micBtn.classList.remove('recording');
+      statusEl.textContent = 'マイクボタンを押して開始';
+      statusEl.classList.remove('recording');
+      interimEl.textContent = '';
+    };
 
-    // Damping
-    p.vx *= 0.998;
-    p.vy *= 0.998;
-
-    // Move
-    p.x += p.vx;
-    p.y += p.vy;
-
-    // Wrap around
-    if (p.x < 0) p.x += W;
-    if (p.x > W) p.x -= W;
-    if (p.y < 0) p.y += H;
-    if (p.y > H) p.y -= H;
-  }
-}
-
-// Draw
-function draw() {
-  // Trail effect
-  ctx.fillStyle = `rgba(0, 0, 0, ${1 - settings.trail})`;
-  ctx.fillRect(0, 0, W, H);
-
-  // Glow at mouse
-  if (mouse.down || mouse.right) {
-    const grad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 150);
-    const color = mouse.right ? 'rgba(255,50,50,' : 'rgba(100,150,255,';
-    grad.addColorStop(0, color + '0.15)');
-    grad.addColorStop(1, color + '0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(mouse.x - 150, mouse.y - 150, 300, 300);
+    return rec;
   }
 
-  // Particles
-  for (let i = 0; i < particles.length; i++) {
-    const p = particles[i];
-    const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-    const size = p.size * Math.min(1 + speed * 0.3, 3);
+  function addEntry(text, confidence) {
+    const now = new Date();
+    const ts = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const confPercent = Math.round(confidence * 100);
+    let confClass = 'high';
+    if (confPercent < 70) confClass = 'low';
+    else if (confPercent < 90) confClass = 'medium';
 
-    ctx.fillStyle = getColor(p, i);
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
+    const entry = { text, confidence: confPercent, timestamp: ts };
+    entries.push(entry);
 
-// FPS
-let frameCount = 0;
-let lastFpsTime = performance.now();
-let fps = 0;
-
-function loop() {
-  update();
-  draw();
-
-  frameCount++;
-  const now = performance.now();
-  if (now - lastFpsTime >= 1000) {
-    fps = frameCount;
-    frameCount = 0;
-    lastFpsTime = now;
-    document.getElementById('stats').textContent =
-      `${particles.length} particles | ${fps} fps${paused ? ' | PAUSED' : ''}${vortexMode ? ' | VORTEX' : ''}`;
+    const div = document.createElement('div');
+    div.className = 'entry';
+    div.innerHTML = `<span class="timestamp">${ts}</span>${escapeHtml(text)}<span class="confidence ${confClass}">(${confPercent}%)</span>`;
+    transcriptEl.appendChild(div);
+    transcriptEl.scrollTop = transcriptEl.scrollHeight;
   }
 
-  requestAnimationFrame(loop);
+  function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  function toggleRecording() {
+    if (isRecording) {
+      isRecording = false;
+      if (recognition) {
+        recognition.stop();
+      }
+    } else {
+      recognition = createRecognition();
+      try {
+        recognition.start();
+      } catch (e) {
+        statusEl.textContent = 'エラー: 認識を開始できませんでした。';
+      }
+    }
+  }
+
+  // Event listeners
+  micBtn.addEventListener('click', toggleRecording);
+
+  langSelect.addEventListener('change', () => {
+    if (isRecording) {
+      isRecording = false;
+      if (recognition) recognition.stop();
+      setTimeout(() => {
+        toggleRecording();
+      }, 300);
+    }
+  });
+
+  copyBtn.addEventListener('click', () => {
+    const text = entries.map(e => e.text).join('\n');
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      copyBtn.textContent = 'コピー済';
+      setTimeout(() => { copyBtn.textContent = 'コピー'; }, 1500);
+    });
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    const lines = entries.map(e => `[${e.timestamp}] ${e.text} (${e.confidence}%)`);
+    const text = lines.join('\n');
+    if (!text) return;
+    const blob = new Blob([text], { type: 'text/plain; charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `speech_${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  clearBtn.addEventListener('click', () => {
+    entries = [];
+    transcriptEl.innerHTML = '';
+    interimEl.textContent = '';
+  });
+
+  // Keyboard shortcut
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && e.target === document.body) {
+      e.preventDefault();
+      toggleRecording();
+    }
+  });
 }
-loop();
 </script>
 </body>
 </html>
