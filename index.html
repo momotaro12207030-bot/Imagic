@@ -3,377 +3,435 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gravity Particle Simulator</title>
+<title>ぷにぷに水</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #000;
-    overflow: hidden;
-    font-family: 'Segoe UI', sans-serif;
-    color: #fff;
-    user-select: none;
-  }
-  canvas { display: block; }
-  #ui {
-    position: fixed;
-    top: 16px;
-    left: 16px;
-    z-index: 10;
-    background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    padding: 16px;
-    min-width: 220px;
-    transition: opacity 0.3s;
-  }
-  #ui h1 {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 12px;
-    background: linear-gradient(90deg, #ff6fd8, #3813c2);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .control { margin-bottom: 10px; }
-  .control label {
-    display: block;
-    font-size: 11px;
-    color: #aaa;
-    margin-bottom: 4px;
-  }
-  .control input[type="range"] {
-    width: 100%;
-    accent-color: #ff6fd8;
-  }
-  .control select, .control button {
-    width: 100%;
-    padding: 6px 8px;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 6px;
-    color: #fff;
-    font-size: 12px;
-    cursor: pointer;
-  }
-  .control button:hover { background: rgba(255,255,255,0.15); }
-  #stats {
-    position: fixed;
-    bottom: 16px;
-    left: 16px;
-    font-size: 11px;
-    color: #555;
-    z-index: 10;
-  }
-  #help {
-    position: fixed;
-    bottom: 16px;
-    right: 16px;
-    font-size: 11px;
-    color: #666;
-    text-align: right;
-    z-index: 10;
-    line-height: 1.6;
-  }
+* { margin: 0; padding: 0; }
+body { background: #050d18; overflow: hidden; cursor: default; }
+canvas { display: block; }
 </style>
 </head>
 <body>
-<canvas id="canvas"></canvas>
-
-<div id="ui">
-  <h1>Gravity Particles</h1>
-  <div class="control">
-    <label>パーティクル数: <span id="countLabel">500</span></label>
-    <input type="range" id="countSlider" min="100" max="3000" value="500" step="50">
-  </div>
-  <div class="control">
-    <label>重力の強さ: <span id="gravLabel">1.0</span></label>
-    <input type="range" id="gravSlider" min="0.1" max="5" value="1" step="0.1">
-  </div>
-  <div class="control">
-    <label>トレイル長: <span id="trailLabel">0.92</span></label>
-    <input type="range" id="trailSlider" min="0" max="0.98" value="0.92" step="0.01">
-  </div>
-  <div class="control">
-    <label>カラーモード</label>
-    <select id="colorMode">
-      <option value="velocity">速度</option>
-      <option value="rainbow">レインボー</option>
-      <option value="distance">距離</option>
-      <option value="fire">ファイア</option>
-      <option value="ocean">オーシャン</option>
-    </select>
-  </div>
-  <div class="control">
-    <button id="resetBtn">リセット</button>
-  </div>
-  <div class="control">
-    <button id="explosionBtn">💥 爆発</button>
-  </div>
-  <div class="control">
-    <button id="vortexBtn">🌀 渦</button>
-  </div>
-</div>
-
-<div id="stats"></div>
-<div id="help">
-  クリック: 引力 ｜ 右クリック: 斥力<br>
-  スクロール: 重力調整 ｜ スペース: 一時停止
-</div>
-
+<canvas id="c"></canvas>
 <script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+// === Simplex Noise 2D ===
+const F2 = 0.5 * (Math.sqrt(3) - 1);
+const G2 = (3 - Math.sqrt(3)) / 6;
+const grad2 = [[1,1],[-1,1],[1,-1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]];
+const perm = new Uint8Array(512);
+const permMod8 = new Uint8Array(512);
 
+(function initNoise() {
+  const p = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) p[i] = i;
+  let seed = 42;
+  for (let i = 255; i > 0; i--) {
+    seed = (seed * 16807 + 0) % 2147483647;
+    const j = seed % (i + 1);
+    [p[i], p[j]] = [p[j], p[i]];
+  }
+  for (let i = 0; i < 512; i++) {
+    perm[i] = p[i & 255];
+    permMod8[i] = perm[i] % 8;
+  }
+})();
+
+function simplex2(x, y) {
+  const s = (x + y) * F2;
+  const i = Math.floor(x + s), j = Math.floor(y + s);
+  const t = (i + j) * G2;
+  const x0 = x - (i - t), y0 = y - (j - t);
+  const i1 = x0 > y0 ? 1 : 0, j1 = x0 > y0 ? 0 : 1;
+  const x1 = x0 - i1 + G2, y1 = y0 - j1 + G2;
+  const x2 = x0 - 1 + 2 * G2, y2 = y0 - 1 + 2 * G2;
+  const ii = i & 255, jj = j & 255;
+  let n0 = 0, n1 = 0, n2 = 0;
+  let t0 = 0.5 - x0 * x0 - y0 * y0;
+  if (t0 > 0) { t0 *= t0; const g = grad2[permMod8[ii + perm[jj]]]; n0 = t0 * t0 * (g[0] * x0 + g[1] * y0); }
+  let t1 = 0.5 - x1 * x1 - y1 * y1;
+  if (t1 > 0) { t1 *= t1; const g = grad2[permMod8[ii + i1 + perm[jj + j1]]]; n1 = t1 * t1 * (g[0] * x1 + g[1] * y1); }
+  let t2 = 0.5 - x2 * x2 - y2 * y2;
+  if (t2 > 0) { t2 *= t2; const g = grad2[permMod8[ii + 1 + perm[jj + 1]]]; n2 = t2 * t2 * (g[0] * x2 + g[1] * y2); }
+  return 70 * (n0 + n1 + n2);
+}
+
+function fbm(x, y, octaves) {
+  let val = 0, amp = 1, freq = 1, max = 0;
+  for (let i = 0; i < octaves; i++) {
+    val += simplex2(x * freq, y * freq) * amp;
+    max += amp;
+    amp *= 0.5;
+    freq *= 2;
+  }
+  return val / max;
+}
+
+// === Canvas Setup ===
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
 let W, H;
+
 function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
+  blob.cx = W / 2;
+  blob.cy = H / 2;
+  blob.baseRadius = Math.min(W, H) * 0.18;
+  companions.forEach(c => { c.baseRadius = blob.baseRadius * c.scale; });
 }
-resize();
-window.addEventListener('resize', resize);
 
-// State
-let particles = [];
-let attractors = [];
-let paused = false;
-let time = 0;
-let vortexMode = false;
+// === Mouse State ===
+let mouseX = -9999, mouseY = -9999;
+const ripples = [];
 
-// Settings
-const settings = {
-  count: 500,
-  gravity: 1.0,
-  trail: 0.92,
-  colorMode: 'velocity',
+canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+canvas.addEventListener('mouseleave', () => { mouseX = -9999; mouseY = -9999; });
+canvas.addEventListener('click', e => {
+  ripples.push({
+    angle: Math.atan2(e.clientY - blob.cy, e.clientX - blob.cx),
+    time: 0,
+    amplitude: 30
+  });
+});
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  mouseX = t.clientX; mouseY = t.clientY;
+}, { passive: false });
+canvas.addEventListener('touchend', () => { mouseX = -9999; mouseY = -9999; });
+canvas.addEventListener('touchstart', e => {
+  const t = e.touches[0];
+  ripples.push({
+    angle: Math.atan2(t.clientY - blob.cy, t.clientX - blob.cx),
+    time: 0,
+    amplitude: 30
+  });
+}, { passive: true });
+
+// === Blob State ===
+const blob = {
+  cx: 0, cy: 0, baseRadius: 150,
+  numVertices: 128,
+  phase: 0,
+  state: 'idle',
+  stateTimer: 3 + Math.random() * 5,
+  transitionIn: 0,
+  transitionOut: 0,
+  prevState: null,
+  prevStateData: {},
+  stateData: {}
 };
 
-// UI bindings
-const countSlider = document.getElementById('countSlider');
-const gravSlider = document.getElementById('gravSlider');
-const trailSlider = document.getElementById('trailSlider');
-const colorMode = document.getElementById('colorMode');
+// === Companion Blobs ===
+const companions = [
+  { offsetAngle: 0, orbitRadius: 2.0, scale: 0.22, noiseOffset: 42.7, numVertices: 64 },
+  { offsetAngle: 2.1, orbitRadius: 1.7, scale: 0.15, noiseOffset: 91.3, numVertices: 48 },
+  { offsetAngle: 4.3, orbitRadius: 2.3, scale: 0.12, noiseOffset: 137.1, numVertices: 40 }
+];
 
-countSlider.addEventListener('input', e => {
-  settings.count = +e.target.value;
-  document.getElementById('countLabel').textContent = settings.count;
-  initParticles();
-});
-gravSlider.addEventListener('input', e => {
-  settings.gravity = +e.target.value;
-  document.getElementById('gravLabel').textContent = settings.gravity.toFixed(1);
-});
-trailSlider.addEventListener('input', e => {
-  settings.trail = +e.target.value;
-  document.getElementById('trailLabel').textContent = settings.trail.toFixed(2);
-});
-colorMode.addEventListener('change', e => {
-  settings.colorMode = e.target.value;
-});
-document.getElementById('resetBtn').addEventListener('click', initParticles);
-document.getElementById('explosionBtn').addEventListener('click', explosion);
-document.getElementById('vortexBtn').addEventListener('click', () => { vortexMode = !vortexMode; });
-
-// Particle
-function createParticle() {
-  const angle = Math.random() * Math.PI * 2;
-  const speed = Math.random() * 0.5;
-  return {
-    x: Math.random() * W,
-    y: Math.random() * H,
-    vx: Math.cos(angle) * speed,
-    vy: Math.sin(angle) * speed,
-    life: 1,
-    hue: Math.random() * 360,
-    size: 1 + Math.random() * 2,
-  };
+// === Ambient Particles ===
+const particles = [];
+for (let i = 0; i < 15; i++) {
+  particles.push({
+    x: Math.random(), y: Math.random(),
+    r: 1.5 + Math.random() * 2.5,
+    speed: 0.0001 + Math.random() * 0.0003,
+    angle: Math.random() * Math.PI * 2,
+    opacity: 0.05 + Math.random() * 0.1,
+    noiseOff: Math.random() * 100
+  });
 }
 
-function initParticles() {
-  particles = [];
-  for (let i = 0; i < settings.count; i++) {
-    particles.push(createParticle());
-  }
+// === Easing ===
+function easeInOutSine(t) { return -(Math.cos(Math.PI * t) - 1) / 2; }
+function easeOutElastic(t) {
+  if (t === 0 || t === 1) return t;
+  return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * (2 * Math.PI / 3)) + 1;
 }
-initParticles();
 
-// Mouse
-let mouse = { x: W / 2, y: H / 2, down: false, right: false };
-canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
-canvas.addEventListener('mousedown', e => {
-  e.preventDefault();
-  if (e.button === 2) mouse.right = true;
-  else mouse.down = true;
-});
-canvas.addEventListener('mouseup', e => {
-  if (e.button === 2) mouse.right = false;
-  else mouse.down = false;
-});
-canvas.addEventListener('contextmenu', e => e.preventDefault());
-canvas.addEventListener('wheel', e => {
-  settings.gravity = Math.max(0.1, Math.min(5, settings.gravity + e.deltaY * -0.002));
-  gravSlider.value = settings.gravity;
-  document.getElementById('gravLabel').textContent = settings.gravity.toFixed(1);
-});
+// === State Machine ===
+function randomRange(a, b) { return a + Math.random() * (b - a); }
 
-// Touch
-canvas.addEventListener('touchstart', e => { e.preventDefault(); mouse.down = true; mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; });
-canvas.addEventListener('touchmove', e => { e.preventDefault(); mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; });
-canvas.addEventListener('touchend', () => { mouse.down = false; });
-
-// Keyboard
-window.addEventListener('keydown', e => {
-  if (e.code === 'Space') { e.preventDefault(); paused = !paused; }
-});
-
-function explosion() {
-  const cx = W / 2, cy = H / 2;
-  for (const p of particles) {
-    const dx = p.x - cx;
-    const dy = p.y - cy;
-    const dist = Math.sqrt(dx * dx + dy * dy) + 1;
-    const force = 20 / dist * 50;
-    p.vx += (dx / dist) * force;
-    p.vy += (dy / dist) * force;
+function initStateData(state) {
+  switch (state) {
+    case 'stretch': return { angle: Math.random() * Math.PI * 2, amount: randomRange(25, 50) };
+    case 'squish': return { amount: randomRange(20, 40) };
+    case 'wobble': return { waveSpeed: randomRange(8, 14), amp: randomRange(12, 25), startAngle: Math.random() * Math.PI * 2 };
+    case 'drift': return {
+      targetX: blob.cx + randomRange(-80, 80),
+      targetY: blob.cy + randomRange(-80, 80),
+      startX: blob.cx, startY: blob.cy
+    };
+    default: return {};
   }
 }
 
-// Color
-function getColor(p, i) {
-  const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-  const dx = p.x - W / 2;
-  const dy = p.y - H / 2;
-  const dist = Math.sqrt(dx * dx + dy * dy);
+const stateOptions = ['stretch', 'squish', 'wobble', 'drift'];
+const stateDurations = { stretch: [1, 2], squish: [0.8, 1.5], wobble: [1.5, 3], drift: [2, 4] };
 
-  switch (settings.colorMode) {
-    case 'velocity': {
-      const hue = Math.min(speed * 20, 1) * 270;
-      return `hsla(${hue}, 100%, ${50 + speed * 10}%, ${0.7 + speed * 0.1})`;
+function updateState(dt) {
+  blob.stateTimer -= dt;
+  blob.transitionIn = Math.min(1, blob.transitionIn + dt * 2.5);
+
+  if (blob.prevState) {
+    blob.transitionOut = Math.min(1, blob.transitionOut + dt * 3);
+    if (blob.transitionOut >= 1) blob.prevState = null;
+  }
+
+  if (blob.stateTimer <= 0) {
+    if (blob.state === 'idle') {
+      const next = stateOptions[Math.floor(Math.random() * stateOptions.length)];
+      const dur = stateDurations[next];
+      blob.prevState = blob.state;
+      blob.prevStateData = blob.stateData;
+      blob.transitionOut = 0;
+      blob.state = next;
+      blob.stateTimer = randomRange(dur[0], dur[1]);
+      blob.stateData = initStateData(next);
+      blob.transitionIn = 0;
+    } else {
+      blob.prevState = blob.state;
+      blob.prevStateData = blob.stateData;
+      blob.transitionOut = 0;
+      blob.state = 'idle';
+      blob.stateTimer = randomRange(3, 8);
+      blob.stateData = {};
+      blob.transitionIn = 0;
     }
-    case 'rainbow': {
-      const hue = (i / particles.length * 360 + time * 0.5) % 360;
-      return `hsla(${hue}, 85%, 60%, 0.8)`;
-    }
-    case 'distance': {
-      const hue = (dist / Math.max(W, H)) * 270;
-      return `hsla(${hue}, 90%, 55%, 0.8)`;
-    }
-    case 'fire': {
-      const t = Math.min(speed * 15, 1);
-      const r = 255;
-      const g = Math.floor(t * 180);
-      const b = Math.floor(t * t * 60);
-      return `rgba(${r},${g},${b},${0.6 + t * 0.3})`;
-    }
-    case 'ocean': {
-      const t = Math.min(speed * 15, 1);
-      const r = Math.floor(t * 100);
-      const g = Math.floor(100 + t * 155);
-      const b = 200 + Math.floor(t * 55);
-      return `rgba(${r},${g},${b},${0.6 + t * 0.3})`;
-    }
-    default:
-      return '#fff';
   }
 }
 
-// Update
-function update() {
-  if (paused) return;
-  time++;
-
-  for (let i = 0; i < particles.length; i++) {
-    const p = particles[i];
-
-    // Mouse gravity
-    if (mouse.down || mouse.right) {
-      const dx = mouse.x - p.x;
-      const dy = mouse.y - p.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) + 10;
-      const force = settings.gravity * 300 / (dist * dist);
-      const sign = mouse.right ? -1 : 1;
-      p.vx += sign * (dx / dist) * force;
-      p.vy += sign * (dy / dist) * force;
+function stateDisplacement(state, data, angle, progress) {
+  const p = easeInOutSine(progress);
+  switch (state) {
+    case 'stretch': {
+      const d = Math.cos(angle - data.angle);
+      return d * d * Math.sign(d) * data.amount * p - (1 - Math.abs(d)) * data.amount * 0.3 * p;
     }
-
-    // Vortex
-    if (vortexMode) {
-      const dx = W / 2 - p.x;
-      const dy = H / 2 - p.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) + 10;
-      const force = settings.gravity * 0.5 / dist;
-      // Tangential + radial
-      p.vx += (-dy / dist) * force + (dx / dist) * force * 0.3;
-      p.vy += (dx / dist) * force + (dy / dist) * force * 0.3;
+    case 'squish': {
+      const ep = easeOutElastic(progress);
+      return -data.amount * (1 - ep);
     }
-
-    // Damping
-    p.vx *= 0.998;
-    p.vy *= 0.998;
-
-    // Move
-    p.x += p.vx;
-    p.y += p.vy;
-
-    // Wrap around
-    if (p.x < 0) p.x += W;
-    if (p.x > W) p.x -= W;
-    if (p.y < 0) p.y += H;
-    if (p.y > H) p.y -= H;
+    case 'wobble': {
+      return Math.sin(angle * 3 - data.startAngle - blob.phase * data.waveSpeed) * data.amp * p;
+    }
+    default: return 0;
   }
 }
 
-// Draw
-function draw() {
-  // Trail effect
-  ctx.fillStyle = `rgba(0, 0, 0, ${1 - settings.trail})`;
+// === Vertex Computation ===
+function computeVertices(cx, cy, baseRadius, numVertices, phase, noiseOffset, includeState) {
+  const verts = [];
+  for (let i = 0; i < numVertices; i++) {
+    const angle = (i / numVertices) * Math.PI * 2;
+    const nx = Math.cos(angle) * 1.5 + (noiseOffset || 0);
+    const ny = Math.sin(angle) * 1.5 + (noiseOffset || 0);
+
+    const n1 = fbm(nx + phase * 0.3, ny + phase * 0.3, 3) * baseRadius * 0.18;
+    const n2 = simplex2(nx * 3 + phase * 0.8, ny * 3 + phase * 0.8) * baseRadius * 0.05;
+    const breathing = Math.sin(phase * 0.5) * baseRadius * 0.06 + Math.sin(phase * 0.7) * baseRadius * 0.03;
+
+    let sd = 0;
+    if (includeState) {
+      sd += stateDisplacement(blob.state, blob.stateData, angle, blob.transitionIn);
+      if (blob.prevState) {
+        sd += stateDisplacement(blob.prevState, blob.prevStateData, angle, 1) * (1 - easeInOutSine(blob.transitionOut));
+      }
+    }
+
+    // Mouse interaction
+    let mx = 0, my = 0;
+    if (includeState) {
+      const vx = cx + Math.cos(angle) * baseRadius;
+      const vy = cy + Math.sin(angle) * baseRadius;
+      const dx = vx - mouseX, dy = vy - mouseY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 200 && dist > 0) {
+        const strength = (1 - dist / 200) * baseRadius * 0.1;
+        mx = (dx / dist) * strength;
+        my = (dy / dist) * strength;
+      }
+
+      // Ripple displacement
+      for (const rip of ripples) {
+        let angleDiff = angle - rip.angle;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        const decay = Math.exp(-rip.time * 3);
+        const wave = Math.sin(rip.time * 15 - Math.abs(angleDiff) * 3) * decay * rip.amplitude;
+        const spread = Math.exp(-angleDiff * angleDiff * 2);
+        sd += wave * spread;
+      }
+    }
+
+    const r = baseRadius + n1 + n2 + breathing + sd;
+    verts.push({
+      x: cx + Math.cos(angle) * r + mx,
+      y: cy + Math.sin(angle) * r + my
+    });
+  }
+  return verts;
+}
+
+// === Drawing ===
+function drawBlobPath(ctx, vertices) {
+  const n = vertices.length;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const prev = vertices[(i - 1 + n) % n];
+    const curr = vertices[i];
+    const next = vertices[(i + 1) % n];
+    const next2 = vertices[(i + 2) % n];
+    const cp1x = curr.x + (next.x - prev.x) / 6;
+    const cp1y = curr.y + (next.y - prev.y) / 6;
+    const cp2x = next.x - (next2.x - curr.x) / 6;
+    const cp2y = next.y - (next2.y - curr.y) / 6;
+    if (i === 0) ctx.moveTo(curr.x, curr.y);
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, next.x, next.y);
+  }
+  ctx.closePath();
+}
+
+function drawBackground() {
+  const grad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.7);
+  grad.addColorStop(0, '#0d1f3c');
+  grad.addColorStop(1, '#050d18');
+  ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
+}
 
-  // Glow at mouse
-  if (mouse.down || mouse.right) {
-    const grad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 150);
-    const color = mouse.right ? 'rgba(255,50,50,' : 'rgba(100,150,255,';
-    grad.addColorStop(0, color + '0.15)');
-    grad.addColorStop(1, color + '0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(mouse.x - 150, mouse.y - 150, 300, 300);
-  }
-
-  // Particles
-  for (let i = 0; i < particles.length; i++) {
-    const p = particles[i];
-    const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-    const size = p.size * Math.min(1 + speed * 0.3, 3);
-
-    ctx.fillStyle = getColor(p, i);
+function drawAmbientParticles(phase) {
+  for (const p of particles) {
+    const drift = simplex2(p.noiseOff + phase * 0.05, p.noiseOff + 50) * 0.002;
+    p.angle += drift;
+    p.x += Math.cos(p.angle) * p.speed;
+    p.y += Math.sin(p.angle) * p.speed;
+    if (p.x < -0.05) p.x = 1.05; if (p.x > 1.05) p.x = -0.05;
+    if (p.y < -0.05) p.y = 1.05; if (p.y > 1.05) p.y = -0.05;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+    ctx.arc(p.x * W, p.y * H, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(160, 210, 255, ${p.opacity})`;
     ctx.fill();
   }
 }
 
-// FPS
-let frameCount = 0;
-let lastFpsTime = performance.now();
-let fps = 0;
+function drawBlobFull(cx, cy, baseRadius, vertices, isMain) {
+  // Outer glow
+  ctx.save();
+  ctx.shadowBlur = 50;
+  ctx.shadowColor = 'rgba(80, 180, 255, 0.25)';
+  drawBlobPath(ctx, vertices);
+  ctx.fillStyle = 'rgba(60, 140, 220, 0.05)';
+  ctx.fill();
+  ctx.restore();
 
-function loop() {
-  update();
-  draw();
+  // Main body gradient
+  ctx.save();
+  drawBlobPath(ctx, vertices);
+  const bodyGrad = ctx.createRadialGradient(cx, cy - baseRadius * 0.15, baseRadius * 0.1, cx, cy, baseRadius * 1.1);
+  bodyGrad.addColorStop(0, 'rgba(140, 220, 255, 0.35)');
+  bodyGrad.addColorStop(0.4, 'rgba(80, 170, 230, 0.25)');
+  bodyGrad.addColorStop(0.7, 'rgba(50, 120, 200, 0.18)');
+  bodyGrad.addColorStop(1, 'rgba(30, 80, 170, 0.08)');
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+  ctx.restore();
 
-  frameCount++;
-  const now = performance.now();
-  if (now - lastFpsTime >= 1000) {
-    fps = frameCount;
-    frameCount = 0;
-    lastFpsTime = now;
-    document.getElementById('stats').textContent =
-      `${particles.length} particles | ${fps} fps${paused ? ' | PAUSED' : ''}${vortexMode ? ' | VORTEX' : ''}`;
+  // Caustics (only for main blob)
+  if (isMain) {
+    ctx.save();
+    drawBlobPath(ctx, vertices);
+    ctx.clip();
+    for (let i = 0; i < 5; i++) {
+      const ccx = cx + simplex2(i * 7.3, blob.phase * 0.15) * baseRadius * 0.55;
+      const ccy = cy + simplex2(i * 7.3 + 100, blob.phase * 0.15) * baseRadius * 0.55;
+      const cr = baseRadius * (0.12 + simplex2(i * 3.1, blob.phase * 0.1) * 0.06);
+      const cGrad = ctx.createRadialGradient(ccx, ccy, 0, ccx, ccy, cr);
+      cGrad.addColorStop(0, 'rgba(180, 235, 255, 0.13)');
+      cGrad.addColorStop(1, 'rgba(180, 235, 255, 0)');
+      ctx.fillStyle = cGrad;
+      ctx.beginPath();
+      ctx.arc(ccx, ccy, cr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
+
+  // Specular highlight
+  ctx.save();
+  drawBlobPath(ctx, vertices);
+  ctx.clip();
+  const hlX = cx - baseRadius * 0.22;
+  const hlY = cy - baseRadius * 0.38;
+  const hlGrad = ctx.createRadialGradient(hlX, hlY, 0, hlX, hlY, baseRadius * 0.5);
+  hlGrad.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
+  hlGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.06)');
+  hlGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = hlGrad;
+  ctx.fillRect(hlX - baseRadius, hlY - baseRadius, baseRadius * 2, baseRadius * 2);
+  ctx.restore();
+
+  // Edge stroke
+  ctx.save();
+  drawBlobPath(ctx, vertices);
+  ctx.strokeStyle = 'rgba(160, 210, 255, 0.2)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+}
+
+// === Main Loop ===
+let lastTime = 0;
+
+function loop(timestamp) {
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+  lastTime = timestamp;
+  blob.phase += dt;
+
+  // Update state
+  updateState(dt);
+
+  // Update drift
+  if (blob.state === 'drift') {
+    const p = easeInOutSine(blob.transitionIn);
+    blob.cx = blob.stateData.startX + (blob.stateData.targetX - blob.stateData.startX) * p;
+    blob.cy = blob.stateData.startY + (blob.stateData.targetY - blob.stateData.startY) * p;
+  } else if (blob.state === 'idle') {
+    // Slowly return to center
+    blob.cx += (W / 2 - blob.cx) * dt * 0.5;
+    blob.cy += (H / 2 - blob.cy) * dt * 0.5;
+  }
+
+  // Update ripples
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    ripples[i].time += dt;
+    if (ripples[i].time > 2) ripples.splice(i, 1);
+  }
+
+  // Draw
+  drawBackground();
+  drawAmbientParticles(blob.phase);
+
+  // Draw companions
+  for (const c of companions) {
+    const a = c.offsetAngle + blob.phase * 0.15;
+    const orbitR = blob.baseRadius * c.orbitRadius;
+    const cx = blob.cx + Math.cos(a) * orbitR + simplex2(c.noiseOffset, blob.phase * 0.2) * 20;
+    const cy = blob.cy + Math.sin(a) * orbitR + simplex2(c.noiseOffset + 50, blob.phase * 0.2) * 20;
+    const verts = computeVertices(cx, cy, c.baseRadius, c.numVertices, blob.phase, c.noiseOffset, false);
+    drawBlobFull(cx, cy, c.baseRadius, verts, false);
+  }
+
+  // Draw main blob
+  const mainVerts = computeVertices(blob.cx, blob.cy, blob.baseRadius, blob.numVertices, blob.phase, 0, true);
+  drawBlobFull(blob.cx, blob.cy, blob.baseRadius, mainVerts, true);
 
   requestAnimationFrame(loop);
 }
-loop();
+
+// === Init ===
+window.addEventListener('resize', resize);
+resize();
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
