@@ -8,7 +8,6 @@
     :root {
       --bg-1: #020a1a;
       --bg-2: #041634;
-      --glow: #5fa9ff;
       --rim: rgba(138, 188, 255, 0.25);
       --water: rgba(122, 187, 255, 0.58);
       --water-deep: rgba(77, 151, 238, 0.45);
@@ -28,7 +27,7 @@
     body {
       position: relative;
       background:
-        radial-gradient(circle at 50% 45%, rgba(51, 121, 206, 0.20) 0%, rgba(7, 24, 52, 0.1) 26%, transparent 52%),
+        radial-gradient(circle at 50% 45%, rgba(51, 121, 206, 0.2) 0%, rgba(7, 24, 52, 0.1) 26%, transparent 52%),
         radial-gradient(circle at 18% 20%, rgba(70, 125, 210, 0.13) 0%, transparent 38%),
         radial-gradient(circle at 83% 28%, rgba(77, 149, 255, 0.12) 0%, transparent 33%),
         radial-gradient(circle at 50% 100%, rgba(43, 86, 152, 0.25) 0%, transparent 40%),
@@ -80,7 +79,7 @@
         radial-gradient(circle at 72% 35%, rgba(165, 216, 255, 0.28) 0 2px, transparent 3px),
         radial-gradient(circle at 41% 62%, rgba(165, 216, 255, 0.26) 0 1.5px, transparent 2.5px),
         radial-gradient(circle at 60% 19%, rgba(165, 216, 255, 0.22) 0 1.5px, transparent 2.5px),
-        radial-gradient(circle at 30% 74%, rgba(165, 216, 255, 0.20) 0 1.5px, transparent 2.5px);
+        radial-gradient(circle at 30% 74%, rgba(165, 216, 255, 0.2) 0 1.5px, transparent 2.5px);
       opacity: 0.75;
     }
 
@@ -101,10 +100,27 @@
         inset 0 0 90px rgba(132, 190, 255, 0.18),
         inset 0 -55px 100px rgba(14, 46, 90, 0.45),
         0 0 70px rgba(81, 158, 255, 0.15);
-      background:
-        radial-gradient(circle at 46% 34%, rgba(176, 223, 255, 0.36), rgba(83, 151, 236, 0.08) 46%, rgba(10, 32, 68, 0.32) 100%);
+      background: radial-gradient(circle at 46% 34%, rgba(176, 223, 255, 0.36), rgba(83, 151, 236, 0.08) 46%, rgba(10, 32, 68, 0.32) 100%);
       animation: wobble 8s ease-in-out infinite;
       overflow: hidden;
+      transform: scale(var(--pod-scale, 1));
+      transition: transform 0.8s ease;
+    }
+
+    .core {
+      position: absolute;
+      left: 50%;
+      top: 47%;
+      width: 20%;
+      aspect-ratio: 1;
+      border-radius: 44% 56% 51% 49% / 52% 44% 56% 48%;
+      transform: translate(-50%, -50%) scale(var(--core-scale, 0.7));
+      background: radial-gradient(circle at 45% 35%, rgba(221, 244, 255, 0.7) 0%, rgba(125, 188, 255, 0.2) 58%, rgba(80, 142, 222, 0.05) 100%);
+      box-shadow: 0 0 34px rgba(138, 201, 255, 0.5);
+      transition: transform 0.8s ease, opacity 0.8s ease;
+      opacity: var(--core-opacity, 0.75);
+      filter: blur(0.3px);
+      animation: pulse 3.2s ease-in-out infinite;
     }
 
     .water {
@@ -118,7 +134,7 @@
         radial-gradient(circle at 50% 30%, rgba(201, 231, 255, 0.54), transparent 42%),
         linear-gradient(180deg, var(--water), var(--water-deep));
       box-shadow: inset 0 14px 24px rgba(214, 236, 255, 0.24);
-      transition: height 0.5s ease;
+      transition: height 0.6s ease;
     }
 
     .water::before,
@@ -149,11 +165,16 @@
       place-items: center;
       backdrop-filter: blur(10px);
       box-shadow: 0 10px 28px rgba(5, 26, 56, 0.46);
-      transition: transform 0.2s ease, background 0.2s ease;
+      transition: transform 0.2s ease, background 0.2s ease, opacity 0.2s ease;
     }
 
     .can:hover { transform: translateY(-3px); background: rgba(132, 190, 255, 0.22); }
     .can:active { transform: translateY(0); }
+    .can.locked {
+      opacity: 0.55;
+      cursor: default;
+      filter: saturate(0.6);
+    }
 
     .drops {
       position: fixed;
@@ -208,6 +229,11 @@
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(14px); }
     }
+
+    @keyframes pulse {
+      0%, 100% { filter: blur(0.3px) brightness(1); }
+      50% { filter: blur(0.8px) brightness(1.15); }
+    }
   </style>
 </head>
 <body>
@@ -215,22 +241,43 @@
   <div class="stars"></div>
 
   <main class="scene">
-    <section class="pod" aria-label="pod">
+    <section id="pod" class="pod" aria-label="pod">
+      <div id="core" class="core"></div>
       <div id="water" class="water"></div>
     </section>
   </main>
 
-  <button id="waterBtn" class="can" aria-label="water">🪣</button>
+  <button id="waterBtn" class="can" aria-label="water">💧</button>
   <div id="drops" class="drops" aria-hidden="true"></div>
   <div class="hint" aria-hidden="true"></div>
 
   <script>
-    const STORAGE_KEY = "water-pod-wallpaper-v1";
-    const state = { water: 30, pours: 0, last: null };
+    const STORAGE_KEY = "water-pod-wallpaper-v2";
 
+    const state = {
+      water: 28,
+      growth: 4,
+      lastWaterDay: null,
+      lastTickAt: Date.now()
+    };
+
+    const podEl = document.getElementById("pod");
+    const coreEl = document.getElementById("core");
     const waterEl = document.getElementById("water");
     const waterBtn = document.getElementById("waterBtn");
     const drops = document.getElementById("drops");
+
+    function dayKey(timestamp = Date.now()) {
+      const d = new Date(timestamp);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function canWaterToday() {
+      return state.lastWaterDay !== dayKey();
+    }
 
     function saveState() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -247,8 +294,41 @@
       }
     }
 
+    function applyOfflineProgress() {
+      const now = Date.now();
+      const elapsedMs = Math.max(0, now - state.lastTickAt);
+      const hours = elapsedMs / (1000 * 60 * 60);
+
+      if (hours > 0) {
+        const hydrationFactor = Math.max(0.45, state.water / 60);
+        state.growth = Math.min(100, state.growth + hours * 0.45 * hydrationFactor);
+        state.water = Math.max(14, state.water - hours * 0.55);
+      }
+
+      state.lastTickAt = now;
+    }
+
     function render() {
-      waterEl.style.height = `${Math.min(80, Math.max(18, state.water))}%`;
+      const water = Math.min(82, Math.max(14, state.water));
+      const growth = Math.min(100, Math.max(0, state.growth));
+
+      waterEl.style.height = `${water}%`;
+
+      const podScale = 0.92 + growth * 0.0015;
+      const coreScale = 0.58 + growth * 0.011;
+      const coreOpacity = 0.48 + growth * 0.0045;
+
+      podEl.style.setProperty("--pod-scale", String(podScale));
+      coreEl.style.setProperty("--core-scale", String(coreScale));
+      coreEl.style.setProperty("--core-opacity", String(Math.min(1, coreOpacity)));
+
+      if (canWaterToday()) {
+        waterBtn.classList.remove("locked");
+        waterBtn.textContent = "💧";
+      } else {
+        waterBtn.classList.add("locked");
+        waterBtn.textContent = "✓";
+      }
     }
 
     function spawnDrops() {
@@ -271,16 +351,28 @@
     }
 
     function pour() {
-      state.pours += 1;
-      state.last = Date.now();
-      state.water = Math.min(80, state.water + 6);
-      render();
+      if (!canWaterToday()) return;
+
+      state.lastWaterDay = dayKey();
+      state.water = Math.min(82, state.water + 14);
+      state.growth = Math.min(100, state.growth + 2.6);
+      state.lastTickAt = Date.now();
+
       spawnDrops();
+      render();
       saveState();
     }
 
-    function dryStep() {
-      state.water = Math.max(18, state.water - 0.4);
+    function passiveStep() {
+      const now = Date.now();
+      const elapsedHours = (now - state.lastTickAt) / (1000 * 60 * 60);
+      const safeElapsed = Math.max(0, Math.min(1.2, elapsedHours));
+      const hydrationFactor = Math.max(0.35, state.water / 65);
+
+      state.growth = Math.min(100, state.growth + safeElapsed * 0.3 * hydrationFactor);
+      state.water = Math.max(14, state.water - safeElapsed * 0.7);
+      state.lastTickAt = now;
+
       render();
       saveState();
     }
@@ -289,9 +381,11 @@
     window.addEventListener("beforeunload", saveState);
 
     loadState();
+    applyOfflineProgress();
     render();
     saveState();
-    setInterval(dryStep, 6000);
+
+    setInterval(passiveStep, 60000);
     setInterval(saveState, 12000);
   </script>
 </body>
