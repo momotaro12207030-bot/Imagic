@@ -3,9 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>YABAME - 3D Racing</title>
+  <title>Eternal Atlas RPG</title>
   <style>
-    :root { color-scheme: dark; }
+    :root {
+      color-scheme: dark;
+      --bg: #020617;
+      --panel: rgba(15, 23, 42, 0.9);
+      --line: rgba(148, 163, 184, 0.35);
+      --accent: #22d3ee;
+      --hp: #22c55e;
+      --mp: #3b82f6;
+      --xp: #f59e0b;
+    }
     * { box-sizing: border-box; }
     html, body {
       margin: 0;
@@ -13,546 +22,569 @@
       height: 100%;
       overflow: hidden;
       font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
-      background: #020617;
+      background: radial-gradient(circle at top, #1e293b, var(--bg) 55%);
     }
-    #game { width: 100%; height: 100%; display: block; }
-    .hud {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
+    #app {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) 1fr minmax(260px, 330px);
+      gap: 12px;
       padding: 12px;
-      color: #e2e8f0;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      backdrop-filter: blur(3px);
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      min-height: 0;
     }
-    .row { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-    .pill {
-      background: rgba(15, 23, 42, 0.65);
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      border-radius: 999px;
-      padding: 8px 12px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      backdrop-filter: blur(2px);
+    .panel h2 {
+      margin: 0;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      letter-spacing: 0.08em;
+      border-bottom: 1px solid var(--line);
+      color: #bae6fd;
     }
-    .center {
-      text-align: center;
-      font-weight: 900;
-      font-size: clamp(28px, 4.5vw, 62px);
-      letter-spacing: 0.14em;
-      color: #7dd3fc;
-      margin-top: 3vh;
-    }
-    .msg {
-      text-align: center;
-      margin-bottom: 2vh;
-      font-size: clamp(12px, 1.8vw, 18px);
-      opacity: 0.95;
-    }
-    .bar {
-      width: min(380px, 75vw);
-      height: 14px;
-      border-radius: 10px;
+    #viewWrap {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 14px;
       overflow: hidden;
-      border: 1px solid rgba(148,163,184,0.5);
-      background: rgba(15,23,42,0.75);
+      min-height: 0;
     }
-    .bar > div {
+    #world {
+      width: 100%;
       height: 100%;
-      transform-origin: left center;
-      background: linear-gradient(90deg,#38bdf8,#22d3ee,#34d399);
+      display: block;
+      background: #020617;
+    }
+    #overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 12px;
+      color: #e0f2fe;
+      font-weight: 700;
+      text-shadow: 0 3px 10px rgba(0,0,0,0.9);
+    }
+    .content {
+      padding: 10px 12px;
+      overflow: auto;
+      line-height: 1.45;
+      font-size: 0.9rem;
+    }
+    .statLine { margin-bottom: 7px; }
+    .bar {
+      width: 100%;
+      height: 11px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(30,41,59,0.9);
+      border: 1px solid rgba(148,163,184,0.3);
+      margin-top: 4px;
+    }
+    .bar > div { height: 100%; }
+    .hp { background: linear-gradient(90deg, #16a34a, #86efac); }
+    .mp { background: linear-gradient(90deg, #2563eb, #7dd3fc); }
+    .xp { background: linear-gradient(90deg, #f59e0b, #fde68a); }
+    #battleCommands {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+    button {
+      border: 1px solid var(--line);
+      background: rgba(15,23,42,0.9);
+      color: #e2e8f0;
+      border-radius: 10px;
+      padding: 9px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    button:hover { border-color: var(--accent); color: #67e8f9; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .log {
+      white-space: pre-wrap;
+      font-size: 0.86rem;
+      min-height: 120px;
+      max-height: 250px;
+      overflow: auto;
+      background: rgba(2,6,23,0.65);
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      padding: 8px;
+    }
+    .grid {
+      display: grid;
+      gap: 8px;
+    }
+    .entry {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 7px;
+      background: rgba(2, 6, 23, 0.5);
+    }
+    .legend {
+      font-size: 0.82rem;
+      opacity: 0.9;
+      margin-top: 6px;
+    }
+    @media (max-width: 1100px) {
+      #app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(320px, 45vh) auto;
+      }
+      .panel { max-height: 32vh; }
     }
   </style>
 </head>
 <body>
-  <canvas id="game"></canvas>
-  <div class="hud">
-    <div class="row">
-      <div class="pill" id="speed">SPEED 0 km/h</div>
-      <div class="pill" id="lap">LAP 1/3</div>
-      <div class="pill" id="time">TIME 0.0s</div>
-      <div class="pill" id="best">BEST --</div>
-    </div>
+  <div id="app">
+    <section class="panel">
+      <h2>HERO STATUS</h2>
+      <div class="content" id="heroPanel"></div>
+      <h2>QUEST LOG</h2>
+      <div class="content" id="questPanel"></div>
+    </section>
 
-    <div class="center">YABAME</div>
+    <section id="viewWrap">
+      <canvas id="world"></canvas>
+      <div id="overlay"></div>
+    </section>
 
-    <div class="row" style="align-items:flex-end;">
-      <div>
-        <div class="pill" style="margin-bottom:8px;">BOOST</div>
-        <div class="bar"><div id="boost"></div></div>
+    <section class="panel">
+      <h2>BATTLE / COMMAND</h2>
+      <div class="content">
+        <div id="battleState">探索中: WASD / 矢印キーで移動、Eで調査</div>
+        <div id="battleCommands">
+          <button id="attackBtn">攻撃</button>
+          <button id="magicBtn">魔法</button>
+          <button id="guardBtn">防御</button>
+          <button id="itemBtn">回復薬</button>
+        </div>
+        <div class="legend">敵と接触するとコマンドバトル。ラスボス撃破が表クリア、深淵の竜撃破が裏クリア。</div>
+        <h2 style="margin-top: 12px;">EVENT LOG</h2>
+        <div id="log" class="log"></div>
+        <h2 style="margin-top: 12px;">MONSTER BOOK</h2>
+        <div id="book" class="grid"></div>
       </div>
-      <div class="msg" id="msg">↑/W 加速 ↓/S ブレーキ ←→/A,D ハンドル Shift ブースト</div>
-    </div>
+    </section>
   </div>
 
   <script>
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
-    const ui = {
-      speed: document.getElementById('speed'),
-      lap: document.getElementById('lap'),
-      time: document.getElementById('time'),
-      best: document.getElementById('best'),
-      boost: document.getElementById('boost'),
-      msg: document.getElementById('msg')
+    const TILE = 32;
+    const mapRows = [
+      "########################################",
+      "#..v....f...f....M.....f....v.........C#",
+      "#..####..#######.....######..#####..####",
+      "#..f....B....f.....f.......f....#......#",
+      "#..####..###########..#####..#..#.###..#",
+      "#..#..f....K....f....#...#..#..#...#..##",
+      "#..#..###########..###...#..#..###.#...#",
+      "#..#......f....#....f....#..#....#.#.v.#",
+      "#..######..##..#.#########..####.#.###.#",
+      "#..f....#..##..#.....f.........#.#...#.#",
+      "#..####.#..##..###########..##.#.###.#.#",
+      "#......f#..#....f.....f..#..##.#.....#.#",
+      "#.#####.#..#.##########..#..##.#######.#",
+      "#...f...#..#......f.....#..##...f.....##",
+      "#..###..#..###########..#..#####..###..#",
+      "#..#....#....f...f....E.#......#...#..##",
+      "#..#.######.###########.######.###.#...#",
+      "#..#......#.....f....#......#.....#..D.#",
+      "#..####.#.##########.#.####.##########.#",
+      "#..f....#......f.....#....#......f.....#",
+      "########################################"
+    ];
+
+    const world = {
+      width: mapRows[0].length,
+      height: mapRows.length,
+      tiles: mapRows.map(r => r.split("")),
+      events: {
+        C: { name: "王都シルフィア", text: "王都に到達。王からラスボス討伐命令を受諾。" },
+        K: { name: "古城の鍵", text: "古城の鍵を発見。封印城に入れるようになった。", grant: "castleKey" },
+        B: { name: "橋の建設", text: "職人の依頼を受け、橋を建設。深淵エリアへ行けるようになった。", grant: "bridge" },
+        M: { name: "魔導塔", text: "魔導塔で奥義を獲得。魔法威力が上昇。", grant: "tower" },
+        E: { name: "ラスボスの封印城", text: "封印城に突入。" },
+        D: { name: "深淵の祭壇", text: "裏ボスの気配が漂う祭壇。" }
+      }
     };
 
-    const key = Object.create(null);
-
-    const roadWidth = 2100;
-    const segmentLength = 180;
-    const rumbleLength = 3;
-    const drawDistance = 250;
-    const cameraHeight = 980;
-    const fov = 95;
-    const cameraDepth = 1 / Math.tan((fov * Math.PI / 180) / 2);
-
-    let width = 0;
-    let height = 0;
-
-    const state = {
-      segments: [],
-      cars: [],
-      trackLength: 0,
-      position: 0,
-      speed: 0,
-      playerX: 0,
-      boost: 1,
-      lap: 1,
-      maxLap: 3,
-      raceStartTime: performance.now(),
-      raceFinished: false,
-      raceCountdown: 3,
-      countdownDone: false,
-      crashTimer: 0,
-      bestTime: Number(localStorage.getItem('yabame-best-time') || 0)
+    const hero = {
+      x: 2,
+      y: 2,
+      maxHp: 220,
+      hp: 220,
+      maxMp: 70,
+      mp: 70,
+      atk: 24,
+      def: 12,
+      lvl: 1,
+      xp: 0,
+      nextXp: 60,
+      potions: 5,
+      weaponTier: 1,
+      flags: { castleKey: false, bridge: false, tower: false, clearFront: false, clearTrue: false }
     };
 
-    function resize() {
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      canvas.style.width = width + 'px';
-      canvas.style.height = height + 'px';
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const encounterTable = [
+      { id: "slime", name: "蒼スライム", hp: 48, atk: 10, def: 4, xp: 18, biome: [".", "v"] },
+      { id: "wolf", name: "影狼", hp: 72, atk: 15, def: 6, xp: 27, biome: ["f", "."] },
+      { id: "golem", name: "遺跡ゴーレム", hp: 128, atk: 20, def: 12, xp: 44, biome: ["M", "#"] },
+      { id: "wyvern", name: "黄昏ワイバーン", hp: 176, atk: 26, def: 14, xp: 72, biome: ["B", "E"] }
+    ];
+
+    const bosses = {
+      final: { id: "demonlord", name: "冥王アバドン", hp: 480, atk: 36, def: 20, xp: 180 },
+      true: { id: "abyssdragon", name: "深淵竜ネブラ", hp: 700, atk: 44, def: 24, xp: 300 }
+    };
+
+    const bestiary = new Map();
+    const logEl = document.getElementById("log");
+    const heroPanel = document.getElementById("heroPanel");
+    const questPanel = document.getElementById("questPanel");
+    const battleState = document.getElementById("battleState");
+    const overlay = document.getElementById("overlay");
+    const bookEl = document.getElementById("book");
+    const canvas = document.getElementById("world");
+    const ctx = canvas.getContext("2d");
+
+    const input = Object.create(null);
+    let battle = null;
+    let lastTick = performance.now();
+    let anim = 0;
+
+    function log(msg) {
+      logEl.textContent = `${msg}\n${logEl.textContent}`.slice(0, 3500);
     }
 
-    function easeIn(a, b, p) { return a + (b - a) * p * p; }
-    function easeOut(a, b, p) { return a + (b - a) * (1 - (1 - p) * (1 - p)); }
-    function easeInOut(a, b, p) { return a + (b - a) * ((-Math.cos(p * Math.PI) / 2) + 0.5); }
-
-    function addSegment(curve, y) {
-      const n = state.segments.length;
-      state.segments.push({
-        index: n,
-        curve,
-        y,
-        sprites: Math.random() > 0.6 ? [Math.random() > 0.5 ? 'tree' : 'lamp'] : [],
-        color: Math.floor(n / rumbleLength) % 2
-          ? { road: '#1f2937', grass: '#3f6212', rumble: '#f8fafc', lane: '#e2e8f0' }
-          : { road: '#111827', grass: '#365314', rumble: '#ef4444', lane: '#cbd5e1' }
-      });
+    function wrapBar(value, max, cls) {
+      const per = Math.max(0, Math.min(100, value / max * 100));
+      return `<div class="bar"><div class="${cls}" style="width:${per}%"></div></div>`;
     }
 
-    function addRoad(enter, hold, leave, curve, hill) {
-      const startY = state.segments.length ? state.segments[state.segments.length - 1].y : 0;
-      const endY = startY + hill * segmentLength;
-      const total = enter + hold + leave;
+    function refreshUI() {
+      heroPanel.innerHTML = `
+        <div class="statLine"><b>Lv.${hero.lvl} 探索者アルト</b></div>
+        <div class="statLine">HP ${Math.ceil(hero.hp)} / ${hero.maxHp}${wrapBar(hero.hp, hero.maxHp, "hp")}</div>
+        <div class="statLine">MP ${Math.ceil(hero.mp)} / ${hero.maxMp}${wrapBar(hero.mp, hero.maxMp, "mp")}</div>
+        <div class="statLine">XP ${hero.xp} / ${hero.nextXp}${wrapBar(hero.xp, hero.nextXp, "xp")}</div>
+        <div class="statLine">攻撃 ${hero.atk} / 防御 ${hero.def} / 回復薬 ${hero.potions}</div>
+      `;
 
-      for (let n = 0; n < enter; n++) addSegment(easeIn(0, curve, n / enter), easeInOut(startY, endY, n / total));
-      for (let n = 0; n < hold; n++) addSegment(curve, easeInOut(startY, endY, (enter + n) / total));
-      for (let n = 0; n < leave; n++) addSegment(easeOut(curve, 0, n / leave), easeInOut(startY, endY, (enter + hold + n) / total));
-    }
+      questPanel.innerHTML = `
+        <div class="entry">表クリア条件: 冥王アバドンを倒す ${hero.flags.clearFront ? "✅" : "⬜"}</div>
+        <div class="entry">裏クリア条件: 深淵竜ネブラを倒す ${hero.flags.clearTrue ? "✅" : "⬜"}</div>
+        <div class="entry">古城の鍵を入手 ${hero.flags.castleKey ? "✅" : "⬜"}</div>
+        <div class="entry">橋を建設 ${hero.flags.bridge ? "✅" : "⬜"}</div>
+        <div class="entry">魔導塔の奥義を習得 ${hero.flags.tower ? "✅" : "⬜"}</div>
+        <div class="entry">図鑑登録数 ${bestiary.size} / 6</div>
+        <div class="legend">目安プレイボリューム: 探索と育成を含め約3時間想定。</div>
+      `;
 
-    function buildTrack() {
-      state.segments = [];
-      addRoad(35, 55, 35, 0, 0);
-      addRoad(40, 60, 40, 0.8, 14);
-      addRoad(30, 50, 30, -1.2, -16);
-      addRoad(35, 65, 35, 1.1, 12);
-      addRoad(28, 40, 28, -0.7, 0);
-      addRoad(22, 45, 22, 0, 18);
-      addRoad(45, 85, 45, 0.7, -20);
-      addRoad(24, 45, 24, -1.3, 10);
-      addRoad(35, 70, 35, 0, 0);
-      state.trackLength = state.segments.length * segmentLength;
-    }
+      bookEl.innerHTML = ["slime", "wolf", "golem", "wyvern", "demonlord", "abyssdragon"].map(id => {
+        if (!bestiary.has(id)) return `<div class="entry">${id} : ???</div>`;
+        const e = bestiary.get(id);
+        return `<div class="entry"><b>${e.name}</b><br>HP:${e.hp} ATK:${e.atk} DEF:${e.def}<br>${e.note}</div>`;
+      }).join("");
 
-    function addCars(count = 28) {
-      state.cars = [];
-      for (let i = 0; i < count; i++) {
-        state.cars.push({
-          z: (i * state.trackLength / count) + Math.random() * 400,
-          x: (Math.random() * 2 - 1) * 0.8,
-          speed: 3200 + Math.random() * 2400,
-          color: ['#f97316', '#22d3ee', '#34d399', '#a78bfa', '#f43f5e'][i % 5]
-        });
+      if (!battle) {
+        battleState.textContent = `探索中: WASD / 矢印移動・E調査 | 地点(${hero.x},${hero.y})`;
       }
     }
 
-    function findSegment(z) {
-      return state.segments[Math.floor(z / segmentLength) % state.segments.length];
+    function levelCheck() {
+      while (hero.xp >= hero.nextXp) {
+        hero.xp -= hero.nextXp;
+        hero.lvl++;
+        hero.nextXp = Math.floor(hero.nextXp * 1.35);
+        hero.maxHp += 38;
+        hero.maxMp += 11;
+        hero.atk += 6;
+        hero.def += 4;
+        hero.hp = hero.maxHp;
+        hero.mp = hero.maxMp;
+        hero.potions++;
+        log(`レベルアップ！ Lv${hero.lvl} になった。能力上昇＆全快。`);
+      }
     }
 
-    function project(worldX, worldY, worldZ, cameraX, cameraY, cameraZ) {
-      const cameraRelativeX = worldX - cameraX;
-      const cameraRelativeY = worldY - cameraY;
-      const cameraRelativeZ = worldZ - cameraZ;
-      const scale = cameraDepth / cameraRelativeZ;
-      return {
-        cameraZ: cameraRelativeZ,
-        scale,
-        x: Math.round((width / 2) + (scale * cameraRelativeX * width / 2)),
-        y: Math.round((height / 2) - (scale * cameraRelativeY * height / 2)),
-        w: Math.round(scale * roadWidth * width / 2)
+    function tileAt(x, y) {
+      if (x < 0 || y < 0 || x >= world.width || y >= world.height) return "#";
+      return world.tiles[y][x];
+    }
+
+    function passable(tile) {
+      if (tile === "#") return false;
+      if (tile === "E" && !hero.flags.castleKey) return false;
+      if (tile === "D" && !hero.flags.bridge) return false;
+      return true;
+    }
+
+    function discoverEnemy(enemy, note="遭遇") {
+      if (!bestiary.has(enemy.id)) {
+        bestiary.set(enemy.id, { ...enemy, note });
+        log(`図鑑登録: ${enemy.name}`);
+      }
+    }
+
+    function startBattle(enemyData) {
+      battle = {
+        enemy: JSON.parse(JSON.stringify(enemyData)),
+        turn: 1,
+        guarding: false
       };
+      discoverEnemy(enemyData, "撃破して情報解析済み");
+      battleState.textContent = `${battle.enemy.name} が出現！ コマンドを選択`;
+      overlay.textContent = `⚔ BATTLE: ${battle.enemy.name}`;
+      log(`${battle.enemy.name} が立ちはだかる！`);
     }
 
-    function drawPolygon(x1, y1, x2, y2, x3, y3, x4, y4, color) {
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.lineTo(x3, y3);
-      ctx.lineTo(x4, y4);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    function drawSky(now) {
-      const sky = ctx.createLinearGradient(0, 0, 0, height * 0.65);
-      sky.addColorStop(0, '#1e3a8a');
-      sky.addColorStop(0.5, '#0f172a');
-      sky.addColorStop(1, '#030712');
-      ctx.fillStyle = sky;
-      ctx.fillRect(0, 0, width, height);
-
-      const sunX = width * 0.78;
-      const sunY = height * 0.17;
-      const sunR = 65;
-      const g = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, sunR);
-      g.addColorStop(0, 'rgba(250,204,21,0.65)');
-      g.addColorStop(1, 'rgba(250,204,21,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
-      ctx.fill();
-
-      for (let i = 0; i < 5; i++) {
-        const px = ((now * 0.003 * (i + 1)) % (width + 500)) - 250;
-        const y = height * 0.24 + i * 24;
-        ctx.fillStyle = `rgba(148,163,184,${0.08 - i * 0.012})`;
-        ctx.beginPath();
-        ctx.ellipse(px, y, 140 + i * 30, 30 + i * 8, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      ctx.fillStyle = '#1f2937';
-      for (let i = 0; i < 7; i++) {
-        const h = 120 + Math.sin(i * 1.7) * 35;
-        const mx = (i / 6) * width;
-        ctx.beginPath();
-        ctx.moveTo(mx - 240, height * 0.5);
-        ctx.lineTo(mx, height * 0.5 - h);
-        ctx.lineTo(mx + 240, height * 0.5);
-        ctx.closePath();
-        ctx.fill();
+    function enemyTurn() {
+      if (!battle) return;
+      let dmg = Math.max(1, battle.enemy.atk - hero.def + Math.floor(Math.random() * 10) - 4);
+      if (battle.guarding) dmg = Math.floor(dmg * 0.45);
+      hero.hp -= dmg;
+      log(`${battle.enemy.name}の攻撃 ${dmg} ダメージ`);
+      battle.guarding = false;
+      if (hero.hp <= 0) {
+        hero.hp = 1;
+        hero.x = 2;
+        hero.y = 2;
+        battle = null;
+        overlay.textContent = "";
+        log("力尽きた…拠点に戻された。HP1で再開。回復して再挑戦しよう。");
       }
     }
 
-    function drawRoadside(type, x, y, scale, clipY) {
-      if (y >= clipY) return;
-      if (type === 'tree') {
-        const h = 90 * scale;
-        const w = 45 * scale;
-        ctx.fillStyle = '#7c2d12';
-        ctx.fillRect(x - w * 0.1, y - h * 0.35, w * 0.2, h * 0.35);
-        ctx.fillStyle = '#16a34a';
-        ctx.beginPath();
-        ctx.ellipse(x, y - h * 0.65, w * 0.9, h * 0.48, 0, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
-        const h = 95 * scale;
-        ctx.fillStyle = '#9ca3af';
-        ctx.fillRect(x - 2 * scale, y - h, 4 * scale, h);
-        ctx.fillStyle = '#fde047';
-        ctx.beginPath();
-        ctx.arc(x, y - h, 8 * scale, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    function updateCars(dt) {
-      for (const car of state.cars) {
-        car.z += car.speed * dt;
-        while (car.z >= state.trackLength) car.z -= state.trackLength;
-        car.x += Math.sin((car.z + car.speed) * 0.00017) * dt * 0.42;
-        car.x = Math.max(-0.9, Math.min(0.9, car.x));
-      }
-    }
-
-    function resetRace() {
-      state.position = 0;
-      state.speed = 0;
-      state.playerX = 0;
-      state.boost = 1;
-      state.lap = 1;
-      state.raceFinished = false;
-      state.raceCountdown = 3;
-      state.countdownDone = false;
-      state.raceStartTime = performance.now();
-      state.crashTimer = 0;
-      ui.msg.textContent = '3...';
-      addCars();
-    }
-
-    function update(dt, now) {
-      if (!state.countdownDone) {
-        state.raceCountdown -= dt;
-        if (state.raceCountdown > 0) ui.msg.textContent = `${Math.ceil(state.raceCountdown)}...`;
-        else {
-          state.countdownDone = true;
-          ui.msg.textContent = 'GO!';
-          setTimeout(() => {
-            if (!state.raceFinished) ui.msg.textContent = '↑/W 加速 ↓/S ブレーキ ←→/A,D ハンドル Shift ブースト';
-          }, 700);
+    function endBattle(victory) {
+      if (!battle) return;
+      if (victory) {
+        hero.xp += battle.enemy.xp;
+        log(`${battle.enemy.name}を撃破！ XP +${battle.enemy.xp}`);
+        if (battle.enemy.id === "demonlord") {
+          hero.flags.clearFront = true;
+          log("表クリア達成！ だが深淵には更なる脅威が眠る。");
         }
+        if (battle.enemy.id === "abyssdragon") {
+          hero.flags.clearTrue = true;
+          log("裏クリア達成！ 真の平和が訪れた。図鑑完成を目指そう。");
+        }
+        levelCheck();
+      }
+      battle = null;
+      overlay.textContent = "";
+      refreshUI();
+    }
+
+    function playerCommand(type) {
+      if (!battle) return;
+      const e = battle.enemy;
+      if (type === "attack") {
+        const dmg = Math.max(1, hero.atk + hero.weaponTier * 3 - e.def + Math.floor(Math.random() * 12));
+        e.hp -= dmg;
+        log(`攻撃！ ${e.name}に ${dmg} ダメージ`);
+      } else if (type === "magic") {
+        const cost = 12;
+        if (hero.mp < cost) {
+          log("MPが足りない！");
+          return;
+        }
+        hero.mp -= cost;
+        const boost = hero.flags.tower ? 1.8 : 1.3;
+        const dmg = Math.floor((hero.atk * boost) + (hero.lvl * 2) + Math.random() * 18);
+        e.hp -= dmg;
+        log(`魔法《スターブレイク》! ${dmg} ダメージ`);
+      } else if (type === "guard") {
+        battle.guarding = true;
+        log("防御体勢を取った。次の被ダメージを軽減。");
+      } else if (type === "item") {
+        if (hero.potions <= 0) {
+          log("回復薬がない！");
+          return;
+        }
+        hero.potions--;
+        const heal = Math.min(hero.maxHp - hero.hp, 85);
+        hero.hp += heal;
+        log(`回復薬でHPを ${heal} 回復`);
+      }
+
+      if (e.hp <= 0) {
+        endBattle(true);
         return;
       }
 
-      if (state.raceFinished) {
-        if (key.Enter || key[' ']) resetRace();
+      enemyTurn();
+      refreshUI();
+      if (battle) {
+        battleState.textContent = `${e.name} HP ${Math.max(0, Math.ceil(e.hp))} | あなたの行動`;
+      }
+    }
+
+    function checkEvent(tile) {
+      if (!world.events[tile]) return;
+      const ev = world.events[tile];
+      log(`[イベント] ${ev.name}: ${ev.text}`);
+      if (ev.grant && !hero.flags[ev.grant]) {
+        hero.flags[ev.grant] = true;
+        if (ev.grant === "tower") hero.weaponTier = 2;
+      }
+      if (tile === "E") {
+        startBattle(bosses.final);
+      }
+      if (tile === "D" && hero.flags.clearFront) {
+        startBattle(bosses.true);
+      } else if (tile === "D" && !hero.flags.clearFront) {
+        log("深淵の祭壇は沈黙している。まずは冥王を倒す必要がある。");
+      }
+    }
+
+    function randomEncounter(tile) {
+      if (battle || "#EKCD".includes(tile)) return;
+      const rate = tile === "f" ? 0.18 : tile === "v" ? 0.15 : 0.1;
+      if (Math.random() > rate) return;
+      const pool = encounterTable.filter(e => e.biome.includes(tile) || e.biome.includes("."));
+      const enemy = pool[Math.floor(Math.random() * pool.length)];
+      startBattle(enemy);
+    }
+
+    function moveHero(dx, dy) {
+      if (battle) return;
+      const nx = hero.x + dx;
+      const ny = hero.y + dy;
+      const tile = tileAt(nx, ny);
+      if (!passable(tile)) {
+        log(tile === "E" ? "封印城には鍵が必要だ。" : tile === "D" ? "深淵へ渡る橋がまだない。" : "進めない。");
         return;
       }
-
-      const accel = key.ArrowUp || key.w;
-      const brake = key.ArrowDown || key.s;
-      const left = key.ArrowLeft || key.a;
-      const right = key.ArrowRight || key.d;
-      const boostOn = (key.Shift || key.ShiftLeft || key.ShiftRight) && state.boost > 0.03 && state.speed > 4300;
-
-      const maxSpeed = 9800;
-      if (accel) state.speed += 6200 * dt;
-      else state.speed -= 2600 * dt;
-      if (brake) state.speed -= 8600 * dt;
-
-      if (boostOn) {
-        state.speed += 9800 * dt;
-        state.boost = Math.max(0, state.boost - dt * 0.26);
-      } else state.boost = Math.min(1, state.boost + dt * 0.11);
-
-      const segment = findSegment(state.position + 600);
-      const steer = 2.0 * (state.speed / maxSpeed);
-      if (left) state.playerX -= steer * dt;
-      if (right) state.playerX += steer * dt;
-      state.playerX -= segment.curve * 0.45 * (state.speed / maxSpeed) * dt;
-
-      if (Math.abs(state.playerX) > 1) state.speed -= 4200 * dt;
-      state.playerX = Math.max(-1.22, Math.min(1.22, state.playerX));
-      state.speed = Math.max(0, Math.min(maxSpeed * 1.18, state.speed));
-
-      state.position += state.speed * dt;
-      updateCars(dt);
-
-      if (state.position >= state.trackLength) {
-        state.position -= state.trackLength;
-        state.lap += 1;
-        if (state.lap > state.maxLap) {
-          state.raceFinished = true;
-          const total = (now - state.raceStartTime) / 1000;
-          ui.msg.textContent = `FINISH ${total.toFixed(2)}s  Enter/Spaceで再スタート`;
-          if (!state.bestTime || total < state.bestTime) {
-            state.bestTime = total;
-            localStorage.setItem('yabame-best-time', String(total));
-          }
-        } else {
-          ui.msg.textContent = `LAP ${state.lap}/${state.maxLap}`;
-          setTimeout(() => {
-            if (!state.raceFinished) ui.msg.textContent = '↑/W 加速 ↓/S ブレーキ ←→/A,D ハンドル Shift ブースト';
-          }, 800);
-        }
-      }
-
-      if (state.crashTimer > 0) state.crashTimer -= dt;
-      for (const car of state.cars) {
-        let dz = car.z - state.position;
-        if (dz < -state.trackLength / 2) dz += state.trackLength;
-        if (dz > state.trackLength / 2) dz -= state.trackLength;
-        if (dz > 0 && dz < 220 && Math.abs(state.playerX - car.x) < 0.18 && state.crashTimer <= 0) {
-          state.speed *= 0.38;
-          state.crashTimer = 0.7;
-          ui.msg.textContent = '接触！ラインを整えろ！';
-          setTimeout(() => {
-            if (!state.raceFinished) ui.msg.textContent = '↑/W 加速 ↓/S ブレーキ ←→/A,D ハンドル Shift ブースト';
-          }, 650);
-        }
-      }
+      hero.x = nx;
+      hero.y = ny;
+      if (world.events[tile] && ["K", "B", "M"].includes(tile)) checkEvent(tile);
+      randomEncounter(tile);
+      refreshUI();
     }
 
-    function drawOpponent(car, maxY) {
-      let dz = car.z - state.position;
-      if (dz <= 0) dz += state.trackLength;
-      if (dz > drawDistance * segmentLength) return;
+    function drawTile(x, y, ch) {
+      const px = x * TILE;
+      const py = y * TILE;
+      const pulse = 0.5 + Math.sin(anim / 400) * 0.18;
 
-      const seg = findSegment(car.z);
-      const segIndex = Math.floor(car.z / segmentLength);
-      const pct = (car.z % segmentLength) / segmentLength;
-      const y1 = seg.y;
-      const nextY = state.segments[(segIndex + 1) % state.segments.length].y;
-      const worldY = y1 + (nextY - y1) * pct;
-      const projected = project(car.x * roadWidth * 0.52, worldY + 30, car.z, state.playerX * roadWidth, cameraHeight, state.position);
+      const palette = {
+        "#": "#334155",
+        ".": "#14532d",
+        "f": "#166534",
+        "v": "#0f766e",
+        "K": "#facc15",
+        "B": "#fb7185",
+        "M": "#a78bfa",
+        "C": "#38bdf8",
+        "E": "#ef4444",
+        "D": "#f97316"
+      };
 
-      if (projected.cameraZ <= cameraDepth || projected.y >= maxY) return;
+      ctx.fillStyle = palette[ch] || "#1e293b";
+      ctx.fillRect(px, py, TILE, TILE);
+      ctx.strokeStyle = "rgba(15,23,42,0.35)";
+      ctx.strokeRect(px, py, TILE, TILE);
 
-      const w = Math.max(12, projected.w * 0.18);
-      const h = Math.max(18, projected.w * 0.09);
-      ctx.fillStyle = car.color;
-      ctx.fillRect(projected.x - w / 2, projected.y - h, w, h);
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(projected.x - w * 0.28, projected.y - h * 0.82, w * 0.56, h * 0.28);
-    }
-
-    function render(now) {
-      drawSky(now);
-
-      const baseIndex = Math.floor(state.position / segmentLength);
-      const basePercent = (state.position % segmentLength) / segmentLength;
-      const playerSegment = state.segments[baseIndex];
-      const playerY = playerSegment.y + (state.segments[(baseIndex + 1) % state.segments.length].y - playerSegment.y) * basePercent;
-
-      let x = 0;
-      let dx = -(playerSegment.curve * basePercent);
-      let maxY = height;
-      const cameraZ = state.position;
-      const cameraX = state.playerX * roadWidth;
-      const cameraY = cameraHeight + playerY;
-
-
-      for (let n = 0; n < drawDistance; n++) {
-        const index = (baseIndex + n) % state.segments.length;
-        const seg = state.segments[index];
-        const nextIndex = (index + 1) % state.segments.length;
-        const looped = index < baseIndex;
-
-        const z1 = index * segmentLength + (looped ? state.trackLength : 0);
-        const z2 = nextIndex * segmentLength + (nextIndex <= baseIndex ? state.trackLength : 0);
-
-        const p1 = project(x, seg.y, z1, cameraX, cameraY, cameraZ);
-        const p2 = project(x + dx, state.segments[nextIndex].y, z2, cameraX, cameraY, cameraZ);
-
-        x += dx;
-        dx += seg.curve;
-
-        if (p1.cameraZ <= cameraDepth || p2.cameraZ <= cameraDepth || p2.y >= p1.y || p2.y >= maxY) continue;
-
-        const fog = n / drawDistance;
-
-        drawPolygon(0, p2.y, width, p2.y, width, maxY, 0, maxY, seg.color.grass);
-        drawPolygon(p1.x - p1.w * 1.12, p1.y, p1.x + p1.w * 1.12, p1.y, p2.x + p2.w * 1.12, p2.y, p2.x - p2.w * 1.12, p2.y, seg.color.rumble);
-        drawPolygon(p1.x - p1.w, p1.y, p1.x + p1.w, p1.y, p2.x + p2.w, p2.y, p2.x - p2.w, p2.y, seg.color.road);
-
-        const laneW1 = p1.w * 2 / 3;
-        const laneW2 = p2.w * 2 / 3;
-        for (let lane = 1; lane < 3; lane++) {
-          const f = lane / 3;
-          const lx1 = p1.x - laneW1 + laneW1 * 2 * f;
-          const lx2 = p2.x - laneW2 + laneW2 * 2 * f;
-          drawPolygon(lx1 - p1.w * 0.008, p1.y, lx1 + p1.w * 0.008, p1.y, lx2 + p2.w * 0.008, p2.y, lx2 - p2.w * 0.008, p2.y, seg.color.lane);
-        }
-
-        ctx.fillStyle = `rgba(2,6,23,${fog * 0.72})`;
-        ctx.fillRect(0, p2.y, width, Math.max(1, maxY - p2.y));
-
-        if (seg.sprites.length) {
-          const scale = p2.w / 320;
-          drawRoadside(seg.sprites[0], p2.x - p2.w * 1.35, p2.y, scale, maxY);
-          drawRoadside(seg.sprites[0], p2.x + p2.w * 1.35, p2.y, scale, maxY);
-        }
-
-        maxY = p2.y;
-      }
-
-      for (const car of state.cars) drawOpponent(car, maxY);
-
-      const speedPulse = Math.sin(now * 0.02) * 2;
-      const px = width * 0.5 + state.playerX * width * 0.25;
-      const py = height * 0.865 + speedPulse;
-
-      ctx.fillStyle = 'rgba(56,189,248,0.2)';
-      ctx.beginPath();
-      ctx.ellipse(px, py + 36, 72, 20, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = state.crashTimer > 0 ? '#ef4444' : '#84cc16';
-      ctx.beginPath();
-      ctx.moveTo(px - 68, py + 18);
-      ctx.lineTo(px - 48, py - 24);
-      ctx.lineTo(px + 48, py - 24);
-      ctx.lineTo(px + 68, py + 18);
-      ctx.lineTo(px + 40, py + 30);
-      ctx.lineTo(px - 40, py + 30);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = '#1e293b';
-      ctx.beginPath();
-      ctx.moveTo(px - 32, py - 14);
-      ctx.lineTo(px - 16, py - 26);
-      ctx.lineTo(px + 16, py - 26);
-      ctx.lineTo(px + 32, py - 14);
-      ctx.lineTo(px + 22, py - 2);
-      ctx.lineTo(px - 22, py - 2);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = '#111827';
-      ctx.fillRect(px - 60, py + 18, 120, 10);
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillRect(px - 60, py + 16, 22, 8);
-      ctx.fillRect(px + 38, py + 16, 22, 8);
-
-      if (state.speed > 4300) {
-        const flame = 12 + (state.speed / 9800) * 22;
-        ctx.fillStyle = 'rgba(34,211,238,0.9)';
+      if ("KBMEC D".replace(/\s/g,"").includes(ch)) {
+        ctx.fillStyle = `rgba(255,255,255,${pulse})`;
         ctx.beginPath();
-        ctx.moveTo(px - 12, py + 26);
-        ctx.lineTo(px, py + 26 + flame);
-        ctx.lineTo(px + 12, py + 26);
+        ctx.arc(px + TILE / 2, py + TILE / 2, 5 + pulse * 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function draw() {
+      const w = world.width * TILE;
+      const h = world.height * TILE;
+      canvas.width = w;
+      canvas.height = h;
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+      ctx.setTransform(1,0,0,1,0,0);
+
+      for (let y = 0; y < world.height; y++) {
+        for (let x = 0; x < world.width; x++) drawTile(x, y, world.tiles[y][x]);
+      }
+
+      // enemy markers
+      for (let i = 0; i < 24; i++) {
+        const ex = (i * 7 + 3) % world.width;
+        const ey = (i * 11 + 4) % world.height;
+        const t = tileAt(ex, ey);
+        if (t === "#") continue;
+        ctx.fillStyle = `rgba(248,113,113,${0.28 + (Math.sin((anim + i * 60) / 260) + 1) * 0.2})`;
+        ctx.beginPath();
+        ctx.arc(ex * TILE + TILE / 2, ey * TILE + TILE / 2, 3, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      const raceTime = state.raceFinished ? (state.bestTime || (now - state.raceStartTime) / 1000) : (now - state.raceStartTime) / 1000;
-      ui.speed.textContent = `SPEED ${Math.floor((state.speed / 9800) * 360)} km/h`;
-      ui.lap.textContent = `LAP ${Math.min(state.lap, state.maxLap)}/${state.maxLap}`;
-      ui.time.textContent = `TIME ${raceTime.toFixed(1)}s`;
-      ui.best.textContent = state.bestTime ? `BEST ${state.bestTime.toFixed(2)}s` : 'BEST --';
-      ui.boost.style.transform = `scaleX(${state.boost})`;
+      // hero sprite
+      const hx = hero.x * TILE + TILE / 2;
+      const hy = hero.y * TILE + TILE / 2;
+      ctx.save();
+      ctx.translate(hx, hy);
+      ctx.fillStyle = "#e2e8f0";
+      ctx.beginPath();
+      ctx.arc(0, -6, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillRect(-7, 1, 14, 15);
+      ctx.fillStyle = "#f59e0b";
+      ctx.fillRect(8, 2, 4, 12);
+      ctx.restore();
     }
 
-    let last = performance.now();
-    function frame(now) {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      update(dt, now);
-      render(now);
-      requestAnimationFrame(frame);
+    function loop(ts) {
+      const dt = ts - lastTick;
+      lastTick = ts;
+      anim += dt;
+
+      if (!battle) {
+        const speed = 120;
+        if (input.ArrowUp || input.w) moveHero(0, -1);
+        else if (input.ArrowDown || input.s) moveHero(0, 1);
+        else if (input.ArrowLeft || input.a) moveHero(-1, 0);
+        else if (input.ArrowRight || input.d) moveHero(1, 0);
+        if (input.e) {
+          checkEvent(tileAt(hero.x, hero.y));
+          input.e = false;
+        }
+      }
+
+      if (hero.flags.clearFront && hero.flags.clearTrue && bestiary.size === 6) {
+        overlay.textContent = "★ 図鑑完成 + 真エンド達成 ★";
+      }
+
+      draw();
+      requestAnimationFrame(loop);
     }
 
-    window.addEventListener('keydown', (e) => {
-      key[e.key] = true;
-      if (e.key.startsWith('Arrow') || e.key === ' ') e.preventDefault();
+    document.getElementById("attackBtn").onclick = () => playerCommand("attack");
+    document.getElementById("magicBtn").onclick = () => playerCommand("magic");
+    document.getElementById("guardBtn").onclick = () => playerCommand("guard");
+    document.getElementById("itemBtn").onclick = () => playerCommand("item");
+
+    window.addEventListener("keydown", e => {
+      input[e.key] = true;
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) e.preventDefault();
     });
-    window.addEventListener('keyup', (e) => { key[e.key] = false; });
-    window.addEventListener('resize', resize);
+    window.addEventListener("keyup", e => { input[e.key] = false; });
 
-    resize();
-    buildTrack();
-    resetRace();
-    requestAnimationFrame(frame);
+    log("Eternal Atlas RPG 起動。王都を目指し、鍵・橋・奥義を集めて世界を救え。");
+    refreshUI();
+    requestAnimationFrame(loop);
   </script>
 </body>
 </html>
