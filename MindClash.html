@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mind Clash - 心理カードバトル</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nico+Moji&display=swap');
+        
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .card {
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+            perspective: 1000px;
+        }
+
+        .card:hover {
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+
+        .card.selected {
+            border: 4px solid #fbbf24;
+            transform: translateY(-20px);
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.75rem;
+        }
+
+        .card-back {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border: 2px solid #475569;
+        }
+
+        .card-front {
+            background: white;
+            color: #1e293b;
+            transform: rotateY(180deg);
+        }
+
+        .special-1 { color: #ef4444; border: 3px solid #ef4444; }
+        .special-10 { color: #f59e0b; border: 3px solid #f59e0b; font-weight: bold; }
+
+        /* SP Card Styles */
+        .sp-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            user-select: none;
+        }
+        .sp-card.used {
+            opacity: 0.2;
+            pointer-events: none;
+            filter: grayscale(100%);
+        }
+        .sp-card.selected {
+            border-color: #fbbf24 !important;
+            background-color: #334155 !important;
+            transform: translateY(-8px);
+            box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
+        }
+
+        .battle-area {
+            background: radial-gradient(circle, #1e293b 0%, #0f172a 100%);
+        }
+
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+        }
+
+        @keyframes pulse-gold {
+            0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(251, 191, 36, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+        }
+        .winner-card { animation: pulse-gold 2s infinite; }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+
+    <!-- UI Overlay -->
+    <div id="game-ui" class="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-6">
+        <div class="flex justify-between items-start">
+            <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-600 pointer-events-auto">
+                <p class="text-xs text-slate-400 uppercase tracking-widest">Player 1 (You)</p>
+                <p id="p1-score-display" class="text-3xl font-bold text-blue-400">SCORE: 0</p>
+            </div>
+            <div class="text-center mt-2">
+                <h1 class="text-2xl font-black tracking-tighter text-white uppercase italic drop-shadow-md">Mind Clash</h1>
+                <div id="round-display" class="bg-amber-500 text-slate-900 px-4 py-1 rounded-full text-sm font-bold mt-1 inline-block">ROUND 1/10</div>
+            </div>
+            <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-600 pointer-events-auto text-right">
+                <p id="p2-label" class="text-xs text-slate-400 uppercase tracking-widest">CPU</p>
+                <p id="p2-score-display" class="text-3xl font-bold text-red-400">SCORE: 0</p>
+            </div>
+        </div>
+
+        <div id="message-log" class="text-center transition-all duration-300 transform scale-100 mb-48">
+            <p id="game-message" class="text-xl font-bold bg-black/40 inline-block px-6 py-2 rounded-full border border-white/20">カードを選んでください</p>
+        </div>
+    </div>
+
+    <!-- Battle Field -->
+    <div class="flex-grow flex flex-col battle-area relative overflow-hidden">
+        <!-- Player 2 (Top) Area -->
+        <div class="h-1/3 flex flex-col items-center justify-center p-4">
+            <div id="p2-hand" class="flex gap-2 transition-opacity duration-300">
+                <!-- Cards injected here -->
+            </div>
+            <div id="p2-sp-hand" class="flex gap-2 mt-4 transition-opacity duration-300 h-14 pointer-events-auto">
+                <!-- SP Cards injected here -->
+            </div>
+        </div>
+
+        <!-- Center Clash Area -->
+        <div class="h-1/3 flex items-center justify-center relative">
+            <div id="clash-zone" class="flex gap-4 md:gap-12 items-center">
+                <div class="flex items-center gap-2">
+                    <div id="p1-played-sp" class="w-12 h-14 rounded-lg flex items-center justify-center"></div>
+                    <div id="p1-played-slot" class="w-24 h-36 border-2 border-dashed border-slate-700 rounded-xl flex items-center justify-center">
+                        <span class="text-slate-700 text-xs text-center px-2">PLAYER 1<br>CARD</span>
+                    </div>
+                </div>
+                
+                <div class="text-4xl font-black text-slate-600 italic">VS</div>
+                
+                <div class="flex items-center gap-2">
+                    <div id="p2-played-slot" class="w-24 h-36 border-2 border-dashed border-slate-700 rounded-xl flex items-center justify-center">
+                        <span class="text-slate-700 text-xs text-center px-2">PLAYER 2<br>CARD</span>
+                    </div>
+                    <div id="p2-played-sp" class="w-12 h-14 rounded-lg flex items-center justify-center"></div>
+                </div>
+            </div>
+            
+            <!-- Result Overlay for round -->
+            <div id="round-result-overlay" class="hidden absolute inset-0 flex items-center justify-center z-20">
+                <div id="result-text" class="text-center text-6xl font-black italic uppercase tracking-tighter drop-shadow-2xl">WIN!</div>
+            </div>
+        </div>
+
+        <!-- Player 1 (Bottom) Area -->
+        <div class="h-1/3 flex flex-col items-center justify-end pb-8">
+            <div id="p1-sp-hand" class="flex gap-2 mb-4 pointer-events-auto h-14">
+                <!-- SP Cards injected here -->
+            </div>
+            <div id="p1-hand" class="flex gap-2 pointer-events-auto">
+                <!-- Cards injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Start/Menu Modal -->
+    <div id="menu-modal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 p-8 rounded-3xl border-2 border-amber-500 max-w-md w-full text-center shadow-2xl max-h-screen overflow-y-auto">
+            <h2 class="text-4xl font-black text-white mb-2 italic drop-shadow-md">MIND CLASH</h2>
+            <p class="text-slate-400 text-sm mb-6">心理戦を制する者が勝利する</p>
+            
+            <div class="space-y-4">
+                <button onclick="startGame('cpu')" class="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition-all transform hover:scale-105">
+                    CPUと対戦する
+                </button>
+                <button onclick="startGame('pvp')" class="w-full py-4 bg-red-600 hover:bg-red-500 rounded-xl font-bold transition-all transform hover:scale-105">
+                    2人で対戦する (ローカル)
+                </button>
+            </div>
+
+            <div class="mt-8 text-left text-xs text-slate-300 space-y-2 border-t border-slate-700 pt-4 bg-slate-800/50 p-4 rounded-lg">
+                <p class="font-bold text-amber-400 text-sm mb-1">【基本ルール】</p>
+                <p>・1〜10のカードを1枚ずつ持ち、10回戦います。</p>
+                <p>・基本は数字の大きい方が勝ち (+1pt)。</p>
+                <p>・例外：<span class="text-red-400 font-bold">「1(道化)」は「10(王)」にだけ勝てます。</span></p>
+                
+                <p class="font-bold text-amber-400 text-sm mt-4 mb-1">【SPカード (各1回のみ使用可)】</p>
+                <p>カードを選ぶ前に任意で選択(付加)できます。</p>
+                <ul class="space-y-1 mt-1 pl-2">
+                    <li><span class="text-base">⚔️</span> <b>Boost:</b> 出したカードの数値を +2 する</li>
+                    <li><span class="text-base">🔄</span> <b>Reverse:</b> このラウンドは「数値が小さい方」が勝つ(例外ルール無効)</li>
+                    <li><span class="text-base">🚫</span> <b>Cancel:</b> このラウンドを強制的に引き分けにする</li>
+                    <li><span class="text-base">💰</span> <b>Greed:</b> 勝利した時、獲得ポイントが 2pt になる</li>
+                    <li><span class="text-base">🛡️</span> <b>Shield:</b> 敗北した時、相手の獲得ポイントを 0 にする</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game End Modal -->
+    <div id="end-modal" class="modal-overlay fixed inset-0 z-50 hidden flex items-center justify-center">
+        <div class="bg-slate-900 p-8 rounded-3xl border-4 border-amber-500 max-w-md w-full text-center shadow-2xl">
+            <h2 id="final-result-title" class="text-5xl font-black text-amber-500 mb-4 italic">VICTORY!</h2>
+            <p id="final-score-text" class="text-xl text-white mb-8 italic uppercase">Final Score: 6 - 4</p>
+            <button onclick="location.reload()" class="w-full py-4 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-200 transition-all">
+                タイトルに戻る
+            </button>
+        </div>
+    </div>
+
+    <!-- Turn Transition for PvP -->
+    <div id="turn-modal" class="modal-overlay fixed inset-0 z-40 hidden flex items-center justify-center">
+        <div class="text-center">
+            <p id="turn-instruction" class="text-2xl font-bold text-white mb-6">PLAYER 2 のターンです</p>
+            <button onclick="hideTurnModal()" class="px-8 py-3 bg-amber-500 text-slate-900 rounded-full font-bold animate-bounce">
+                画面を見る
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const SP_CARDS = {
+            'Boost': { id: 'Boost', name: 'Boost', icon: '⚔️', desc: '数値+2' },
+            'Reverse': { id: 'Reverse', name: 'Reverse', icon: '🔄', desc: '反転' },
+            'Cancel': { id: 'Cancel', name: 'Cancel', icon: '🚫', desc: '無効化' },
+            'Greed': { id: 'Greed', name: 'Greed', icon: '💰', desc: '勝利時2pt' },
+            'Shield': { id: 'Shield', name: 'Shield', icon: '🛡️', desc: '敗北時相手0pt' }
+        };
+        const SP_CARDS_LIST = ['Boost', 'Reverse', 'Cancel', 'Greed', 'Shield'];
+
+        const state = {
+            gameMode: 'cpu', // 'cpu' or 'pvp'
+            currentRound: 1,
+            p1Score: 0,
+            p2Score: 0,
+            p1Hand: [1,2,3,4,5,6,7,8,9,10],
+            p2Hand: [1,2,3,4,5,6,7,8,9,10],
+            p1SpHand: [...SP_CARDS_LIST],
+            p2SpHand: [...SP_CARDS_LIST],
+            p1Selected: null,
+            p2Selected: null,
+            p1SelectedSp: null,
+            p2SelectedSp: null,
+            isProcessing: false,
+            currentPlayer: 1 // 1 or 2 (Used for PvP)
+        };
+
+        const elements = {
+            p1Hand: document.getElementById('p1-hand'),
+            p2Hand: document.getElementById('p2-hand'),
+            p1SpHand: document.getElementById('p1-sp-hand'),
+            p2SpHand: document.getElementById('p2-sp-hand'),
+            p1Slot: document.getElementById('p1-played-slot'),
+            p2Slot: document.getElementById('p2-played-slot'),
+            p1SpSlot: document.getElementById('p1-played-sp'),
+            p2SpSlot: document.getElementById('p2-played-sp'),
+            message: document.getElementById('game-message'),
+            roundDisplay: document.getElementById('round-display'),
+            p1ScoreDisplay: document.getElementById('p1-score-display'),
+            p2ScoreDisplay: document.getElementById('p2-score-display'),
+            p2Label: document.getElementById('p2-label'),
+            menuModal: document.getElementById('menu-modal'),
+            endModal: document.getElementById('end-modal'),
+            turnModal: document.getElementById('turn-modal'),
+            turnInstruction: document.getElementById('turn-instruction'),
+            resultOverlay: document.getElementById('round-result-overlay'),
+            resultText: document.getElementById('result-text')
+        };
+
+        function startGame(mode) {
+            state.gameMode = mode;
+            elements.menuModal.classList.add('hidden');
+            elements.p2Label.innerText = mode === 'cpu' ? 'COMPUTER' : 'PLAYER 2';
+            renderHands();
+            renderSpHands();
+            updateUI();
+            
+            if (mode === 'pvp') {
+                showTurnModal(1);
+            }
+        }
+
+        function renderHands() {
+            elements.p1Hand.innerHTML = '';
+            elements.p2Hand.innerHTML = '';
+
+            // Player 1 Hand
+            state.p1Hand.forEach(val => {
+                const card = createCardElement(val, 1);
+                // Disable interactions for P1 cards if it's P2's turn in PvP
+                if (state.gameMode === 'pvp' && state.currentPlayer === 2) {
+                    card.style.pointerEvents = 'none';
+                }
+                elements.p1Hand.appendChild(card);
+            });
+
+            // Player 2 Hand
+            state.p2Hand.forEach(val => {
+                const card = createCardElement(val, 2);
+                // Disable interactions for P2 cards if it's CPU mode or P1's turn
+                if (state.gameMode === 'cpu' || (state.gameMode === 'pvp' && state.currentPlayer === 1)) {
+                    card.style.pointerEvents = 'none';
+                }
+                elements.p2Hand.appendChild(card);
+            });
+        }
+
+        function renderSpHands() {
+            elements.p1SpHand.innerHTML = '';
+            elements.p2SpHand.innerHTML = '';
+
+            SP_CARDS_LIST.forEach(spId => {
+                // Player 1 SP Cards
+                const p1Sp = createSpCardElement(spId, 1);
+                if (!state.p1SpHand.includes(spId)) {
+                    p1Sp.classList.add('used');
+                } else if (state.gameMode === 'pvp' && state.currentPlayer === 2) {
+                    p1Sp.style.pointerEvents = 'none';
+                }
+                if (state.p1SelectedSp === spId) p1Sp.classList.add('selected');
+                elements.p1SpHand.appendChild(p1Sp);
+
+                // Player 2 SP Cards
+                const p2Sp = createSpCardElement(spId, 2);
+                if (!state.p2SpHand.includes(spId)) {
+                    p2Sp.classList.add('used');
+                } else if (state.gameMode === 'cpu' || (state.gameMode === 'pvp' && state.currentPlayer === 1)) {
+                    p2Sp.style.pointerEvents = 'none';
+                }
+                if (state.p2SelectedSp === spId && state.gameMode === 'pvp' && state.currentPlayer === 2) {
+                    p2Sp.classList.add('selected');
+                }
+                elements.p2SpHand.appendChild(p2Sp);
+            });
+        }
+
+        function createCardElement(value, player) {
+            const container = document.createElement('div');
+            container.className = `card w-14 h-20 md:w-20 md:h-28 relative flipped`;
+            container.innerHTML = `
+                <div class="card-inner w-full h-full shadow-lg">
+                    <div class="card-back text-slate-500 font-bold text-xl">?</div>
+                    <div class="card-front text-xl md:text-2xl font-black ${value === 1 ? 'special-1' : (value === 10 ? 'special-10' : '')}">
+                        ${value}
+                    </div>
+                </div>
+            `;
+            container.onclick = () => selectCard(value, player, container);
+            return container;
+        }
+
+        function createSpCardElement(spId, player) {
+            const sp = SP_CARDS[spId];
+            const container = document.createElement('div');
+            container.className = `sp-card flex flex-col items-center justify-center bg-slate-800 border-2 border-slate-600 rounded-lg w-10 h-12 md:w-12 md:h-14`;
+            container.title = sp.desc; // Tooltip
+            container.innerHTML = `
+                <div class="text-lg md:text-xl">${sp.icon}</div>
+                <div class="text-[8px] md:text-[10px] text-slate-300 font-bold">${sp.name}</div>
+            `;
+            container.onclick = () => selectSpCard(spId, player);
+            return container;
+        }
+
+        function selectSpCard(spId, player) {
+            if (state.isProcessing) return;
+            if (state.gameMode === 'pvp' && state.currentPlayer !== player) return;
+
+            if (player === 1) {
+                if (!state.p1SpHand.includes(spId)) return;
+                state.p1SelectedSp = (state.p1SelectedSp === spId) ? null : spId; // Toggle
+            } else if (player === 2) {
+                if (!state.p2SpHand.includes(spId)) return;
+                state.p2SelectedSp = (state.p2SelectedSp === spId) ? null : spId; // Toggle
+            }
+            renderSpHands();
+        }
+
+        function selectCard(value, player, el) {
+            if (state.isProcessing) return;
+            if (state.gameMode === 'pvp' && state.currentPlayer !== player) return;
+
+            if (player === 1) {
+                state.p1Selected = value;
+                Array.from(elements.p1Hand.children).forEach(c => c.classList.remove('selected'));
+                el.classList.add('selected');
+
+                if (state.gameMode === 'cpu') {
+                    proceedToClash();
+                } else {
+                    state.currentPlayer = 2;
+                    setTimeout(() => showTurnModal(2), 500);
+                }
+            } else if (player === 2) {
+                state.p2Selected = value;
+                Array.from(elements.p2Hand.children).forEach(c => c.classList.remove('selected'));
+                el.classList.add('selected');
+                proceedToClash();
+            }
+        }
+
+        function showTurnModal(playerNum) {
+            elements.turnInstruction.innerText = `PLAYER ${playerNum} のターンです。\nデバイスを渡してください。`;
+            elements.turnModal.classList.remove('hidden');
+            renderHands();
+            renderSpHands();
+        }
+
+        function hideTurnModal() {
+            elements.turnModal.classList.add('hidden');
+            let spMsg = " (SPカードも選べます)";
+            elements.message.innerText = `PLAYER ${state.currentPlayer}: カードを選んでください${spMsg}`;
+        }
+
+        async function proceedToClash() {
+            state.isProcessing = true;
+            
+            if (state.gameMode === 'cpu') {
+                state.p2Selected = cpuPickCard();
+                state.p2SelectedSp = cpuPickSpCard(state.p2Selected);
+            }
+
+            // Remove used SP cards from hand
+            if (state.p1SelectedSp) state.p1SpHand = state.p1SpHand.filter(id => id !== state.p1SelectedSp);
+            if (state.p2SelectedSp) state.p2SpHand = state.p2SpHand.filter(id => id !== state.p2SelectedSp);
+            
+            renderSpHands(); // Reflect used status visually
+
+            // Display selected SP cards in clash zone
+            elements.p1SpSlot.innerHTML = '';
+            if (state.p1SelectedSp) {
+                const spEl = createSpCardElement(state.p1SelectedSp, 1);
+                spEl.className = "flex flex-col items-center justify-center bg-slate-700 border-2 border-amber-400 rounded-lg w-full h-full text-white transform scale-110 shadow-lg";
+                spEl.style.pointerEvents = "none";
+                elements.p1SpSlot.appendChild(spEl);
+            }
+
+            elements.p2SpSlot.innerHTML = '';
+            if (state.p2SelectedSp) {
+                // Keep P2's SP card hidden until reveal
+                const spEl = document.createElement('div');
+                spEl.className = "flex flex-col items-center justify-center bg-slate-700 border-2 border-slate-500 rounded-lg w-full h-full text-slate-400";
+                spEl.innerHTML = "?";
+                elements.p2SpSlot.appendChild(spEl);
+            }
+
+            // Create visible "played" cards in the slots
+            const p1Played = createCardElement(state.p1Selected, 1);
+            elements.p1Slot.innerHTML = '';
+            elements.p1Slot.appendChild(p1Played);
+
+            const p2Played = createCardElement(state.p2Selected, 2);
+            p2Played.classList.remove('flipped'); // 伏せて出す
+            elements.p2Slot.innerHTML = '';
+            elements.p2Slot.appendChild(p2Played);
+
+            // Announce SP cards if any
+            if (state.p1SelectedSp || state.p2SelectedSp) {
+                elements.message.innerText = "SPカード発動...!";
+                await sleep(1000);
+            } else {
+                elements.message.innerText = "CLASH!";
+            }
+
+            // Reveal P2 elements
+            p2Played.classList.add('flipped'); // 表にする
+            if (state.p2SelectedSp) {
+                elements.p2SpSlot.innerHTML = '';
+                const spEl = createSpCardElement(state.p2SelectedSp, 2);
+                spEl.className = "flex flex-col items-center justify-center bg-slate-700 border-2 border-amber-400 rounded-lg w-full h-full text-white transform scale-110 shadow-lg";
+                spEl.style.pointerEvents = "none";
+                elements.p2SpSlot.appendChild(spEl);
+            }
+
+            // Text message for SP activation
+            let msg = [];
+            if (state.p1SelectedSp) msg.push(`P1: ${SP_CARDS[state.p1SelectedSp].name}`);
+            if (state.p2SelectedSp) msg.push(`P2: ${SP_CARDS[state.p2SelectedSp].name}`);
+            if (msg.length > 0) {
+                elements.message.innerText = msg.join(" / ");
+            } else {
+                elements.message.innerText = "BATTLE!";
+            }
+            
+            await sleep(1000);
+            resolveWinner(state.p1Selected, state.p2Selected, state.p1SelectedSp, state.p2SelectedSp, p1Played, p2Played);
+        }
+
+        function cpuPickCard() {
+            const hand = state.p2Hand;
+            const hasOne = hand.includes(1);
+            if (hasOne && state.p1Hand.includes(10) && Math.random() < 0.3) return 1;
+            const idx = Math.floor(Math.random() * hand.length);
+            return hand[idx];
+        }
+
+        function cpuPickSpCard(cpuCard) {
+            const hand = state.p2SpHand;
+            if (hand.length === 0) return null;
+            
+            const p1HasTen = state.p1Hand.includes(10);
+            
+            // Strategic usage
+            if (hand.includes('Greed') && cpuCard >= 9 && Math.random() < 0.6) return 'Greed';
+            if (hand.includes('Shield') && cpuCard <= 4 && Math.random() < 0.5) return 'Shield';
+            if (hand.includes('Reverse') && cpuCard <= 3 && Math.random() < 0.7) return 'Reverse';
+            if (hand.includes('Boost') && cpuCard >= 7 && cpuCard <= 9 && Math.random() < 0.5) return 'Boost';
+            if (hand.includes('Cancel') && p1HasTen && !state.p2Hand.includes(10) && Math.random() < 0.5) return 'Cancel';
+            
+            // Random chance
+            if (Math.random() < 0.15) {
+                return hand[Math.floor(Math.random() * hand.length)];
+            }
+            return null;
+        }
+
+        function resolveWinner(v1, v2, sp1, sp2, el1, el2) {
+            let result = ""; // "p1", "p2", or "draw"
+            let ptsP1 = 0;
+            let ptsP2 = 0;
+
+            let v1Final = v1;
+            let v2Final = v2;
+
+            if (sp1 === 'Boost') v1Final += 2;
+            if (sp2 === 'Boost') v2Final += 2;
+
+            const isReverse = (sp1 === 'Reverse' || sp2 === 'Reverse');
+            const isCancel = (sp1 === 'Cancel' || sp2 === 'Cancel');
+
+            if (isCancel) {
+                result = "draw";
+            } else {
+                if (!isReverse) {
+                    // Normal rules
+                    if (v1 === 1 && v2 === 10) result = "p1";
+                    else if (v2 === 1 && v1 === 10) result = "p2";
+                    else if (v1Final === v2Final) result = "draw";
+                    else if (v1Final > v2Final) result = "p1";
+                    else result = "p2";
+                } else {
+                    // Reverse rules (Special 1vs10 is ignored, just value comparison)
+                    if (v1Final === v2Final) result = "draw";
+                    else if (v1Final < v2Final) result = "p1";
+                    else result = "p2";
+                }
+            }
+
+            // Score Calculation
+            if (result === "p1") {
+                ptsP1 = (sp1 === 'Greed') ? 2 : 1;
+                if (sp2 === 'Shield') ptsP1 = 0;
+            } else if (result === "p2") {
+                ptsP2 = (sp2 === 'Greed') ? 2 : 1;
+                if (sp1 === 'Shield') ptsP2 = 0;
+            }
+
+            // Update state
+            state.p1Hand = state.p1Hand.filter(v => v !== v1);
+            state.p2Hand = state.p2Hand.filter(v => v !== v2);
+            state.p1Score += ptsP1;
+            state.p2Score += ptsP2;
+
+            // Display result
+            elements.resultOverlay.classList.remove('hidden');
+            
+            if (result === "p1") {
+                let ptClass = ptsP1 > 0 ? "text-blue-300" : "text-slate-400";
+                let blockText = (sp2 === 'Shield') ? "<br><span class='text-xl text-slate-300'>BLOCKED BY SHIELD</span>" : "";
+                elements.resultText.innerHTML = `PLAYER 1 WIN<br><span class="text-4xl ${ptClass}">+${ptsP1} PTS</span>${blockText}`;
+                elements.resultText.className = "text-center text-5xl font-black italic uppercase text-blue-400 drop-shadow-lg";
+                el1.classList.add('winner-card');
+            } else if (result === "p2") {
+                let ptClass = ptsP2 > 0 ? "text-red-300" : "text-slate-400";
+                let blockText = (sp1 === 'Shield') ? "<br><span class='text-xl text-slate-300'>BLOCKED BY SHIELD</span>" : "";
+                let name = state.gameMode === 'cpu' ? "CPU" : "PLAYER 2";
+                elements.resultText.innerHTML = `${name} WIN<br><span class="text-4xl ${ptClass}">+${ptsP2} PTS</span>${blockText}`;
+                elements.resultText.className = "text-center text-5xl font-black italic uppercase text-red-400 drop-shadow-lg";
+                el2.classList.add('winner-card');
+            } else {
+                let reason = isCancel ? "<br><span class='text-2xl'>CANCELED</span>" : "";
+                elements.resultText.innerHTML = `DRAW${reason}`;
+                elements.resultText.className = "text-center text-6xl font-black italic uppercase text-slate-400 drop-shadow-lg";
+            }
+
+            setTimeout(() => {
+                nextRound();
+            }, 2500);
+        }
+
+        function nextRound() {
+            elements.resultOverlay.classList.add('hidden');
+            elements.p1Slot.innerHTML = '<span class="text-slate-700 text-xs text-center px-2">PLAYER 1<br>CARD</span>';
+            elements.p2Slot.innerHTML = '<span class="text-slate-700 text-xs text-center px-2">PLAYER 2<br>CARD</span>';
+            elements.p1SpSlot.innerHTML = '';
+            elements.p2SpSlot.innerHTML = '';
+            
+            state.p1Selected = null;
+            state.p2Selected = null;
+            state.p1SelectedSp = null;
+            state.p2SelectedSp = null;
+            state.currentRound++;
+            state.currentPlayer = 1;
+
+            if (state.currentRound > 10) {
+                showEndGame();
+            } else {
+                state.isProcessing = false;
+                updateUI();
+                renderHands();
+                renderSpHands();
+                if (state.gameMode === 'pvp') {
+                    showTurnModal(1);
+                } else {
+                    elements.message.innerText = "カードを選んでください";
+                }
+            }
+        }
+
+        function updateUI() {
+            elements.roundDisplay.innerText = `ROUND ${state.currentRound}/10`;
+            elements.p1ScoreDisplay.innerText = `SCORE: ${state.p1Score}`;
+            elements.p2ScoreDisplay.innerText = `SCORE: ${state.p2Score}`;
+        }
+
+        function showEndGame() {
+            elements.endModal.classList.remove('hidden');
+            const title = document.getElementById('final-result-title');
+            const score = document.getElementById('final-score-text');
+            
+            score.innerText = `Final Score: ${state.p1Score} - ${state.p2Score}`;
+            
+            if (state.p1Score > state.p2Score) {
+                title.innerText = "PLAYER 1 VICTORY!";
+                title.className = "text-5xl font-black text-blue-400 mb-4 italic";
+            } else if (state.p2Score > state.p1Score) {
+                title.innerText = state.gameMode === 'cpu' ? "CPU VICTORY..." : "PLAYER 2 VICTORY!";
+                title.className = "text-5xl font-black text-red-400 mb-4 italic";
+            } else {
+                title.innerText = "DRAW GAME";
+                title.className = "text-5xl font-black text-slate-400 mb-4 italic";
+            }
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+</body>
+</html>
