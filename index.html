@@ -3,556 +3,242 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>YABAME - 3D Racing</title>
+  <title>新幹線をぴったり止めろ！</title>
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; }
-    html, body {
+    body {
       margin: 0;
-      width: 100%;
-      height: 100%;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+      background: radial-gradient(circle at top, #0b1b49, #020617 65%);
+      color: #e2e8f0;
       overflow: hidden;
-      font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    }
+    .game {
+      width: min(1000px, 95vw);
+      border: 1px solid #334155;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #0f172a;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+    }
+    .track {
+      position: relative;
+      height: 320px;
+      background:
+        linear-gradient(#38bdf8 0 35%, #93c5fd00 35%),
+        linear-gradient(#334155 0 65%, #1e293b 65%);
+    }
+    .rail {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 190px;
+      height: 8px;
+      background: #94a3b8;
+      box-shadow: 0 24px 0 #94a3b8;
+    }
+    .platform {
+      position: absolute;
+      right: 80px;
+      top: 155px;
+      width: 90px;
+      height: 86px;
+      border: 3px solid #facc15;
+      background: #fef08a22;
+    }
+    .platform::before {
+      content: "停車位置";
+      position: absolute;
+      top: -34px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-weight: 700;
+      font-size: 14px;
+      color: #fef08a;
+      white-space: nowrap;
+    }
+    .train {
+      position: absolute;
+      left: 20px;
+      top: 120px;
+      width: 150px;
+      height: 88px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #f8fafc, #cbd5e1);
+      border: 2px solid #94a3b8;
+    }
+    .train::before {
+      content: "";
+      position: absolute;
+      inset: 15px 20px auto;
+      height: 16px;
+      background: #0ea5e9;
+      border-radius: 999px;
+    }
+    .train::after {
+      content: "";
+      position: absolute;
+      right: -14px;
+      top: 22px;
+      width: 18px;
+      height: 32px;
+      background: #e2e8f0;
+      border-radius: 0 10px 10px 0;
+      border: 2px solid #94a3b8;
+      border-left: none;
+    }
+    .hud {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
       background: #020617;
     }
-    #game { width: 100%; height: 100%; display: block; }
-    .hud {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      padding: 12px;
-      color: #e2e8f0;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-    .row { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
     .pill {
-      background: rgba(15, 23, 42, 0.65);
-      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: #0f172a;
+      border: 1px solid #475569;
       border-radius: 999px;
-      padding: 8px 12px;
+      padding: 6px 12px;
       font-weight: 700;
-      letter-spacing: 0.05em;
-      backdrop-filter: blur(2px);
     }
-    .center {
-      text-align: center;
-      font-weight: 900;
-      font-size: clamp(28px, 4.5vw, 62px);
-      letter-spacing: 0.14em;
-      color: #7dd3fc;
-      margin-top: 3vh;
-    }
-    .msg {
-      text-align: center;
-      margin-bottom: 2vh;
-      font-size: clamp(12px, 1.8vw, 18px);
-      opacity: 0.95;
-    }
-    .bar {
-      width: min(380px, 75vw);
-      height: 14px;
-      border-radius: 10px;
-      overflow: hidden;
-      border: 1px solid rgba(148,163,184,0.5);
-      background: rgba(15,23,42,0.75);
-    }
-    .bar > div {
-      height: 100%;
-      transform-origin: left center;
-      background: linear-gradient(90deg,#38bdf8,#22d3ee,#34d399);
+    .message { font-size: clamp(18px, 2.5vw, 28px); font-weight: 800; color: #7dd3fc; }
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-weight: 800;
+      cursor: pointer;
+      background: linear-gradient(90deg, #22d3ee, #38bdf8);
+      color: #082f49;
     }
   </style>
 </head>
 <body>
-  <canvas id="game"></canvas>
-  <div class="hud">
-    <div class="row">
-      <div class="pill" id="speed">SPEED 0 km/h</div>
-      <div class="pill" id="lap">LAP 1/3</div>
-      <div class="pill" id="time">TIME 0.0s</div>
-      <div class="pill" id="best">BEST --</div>
-    </div>
-
-    <div class="center">YABAME</div>
-
-    <div class="row" style="align-items:flex-end;">
-      <div>
-        <div class="pill" style="margin-bottom:8px;">BOOST</div>
-        <div class="bar"><div id="boost"></div></div>
+  <main class="game">
+    <section class="track" id="track">
+      <div class="rail"></div>
+      <div class="platform" id="target"></div>
+      <div class="train" id="train"></div>
+    </section>
+    <section class="hud">
+      <div class="row">
+        <div class="pill" id="speed">速度: 0 km/h</div>
+        <div class="pill" id="distance">残り: -- m</div>
+        <div class="pill" id="score">誤差: -- cm</div>
       </div>
-      <div class="msg" id="msg">↑/W 加速 ↓/S ブレーキ ←→/A,D ハンドル Shift ブースト</div>
-    </div>
-  </div>
+      <div class="row">
+        <div class="message" id="message">スペースキーで発車、もう一度押してブレーキ！</div>
+        <button id="retry">もう一回</button>
+      </div>
+    </section>
+  </main>
 
   <script>
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
-    const ui = {
-      speed: document.getElementById('speed'),
-      lap: document.getElementById('lap'),
-      time: document.getElementById('time'),
-      best: document.getElementById('best'),
-      boost: document.getElementById('boost'),
-      msg: document.getElementById('msg')
-    };
-
-    const key = Object.create(null);
-
-    const roadWidth = 2100;
-    const segmentLength = 180;
-    const rumbleLength = 3;
-    const drawDistance = 250;
-    const cameraHeight = 980;
-    const fov = 95;
-    const cameraDepth = 1 / Math.tan((fov * Math.PI / 180) / 2);
-
-    let width = 0;
-    let height = 0;
+    const train = document.getElementById('train');
+    const target = document.getElementById('target');
+    const speedEl = document.getElementById('speed');
+    const distanceEl = document.getElementById('distance');
+    const scoreEl = document.getElementById('score');
+    const messageEl = document.getElementById('message');
+    const retryBtn = document.getElementById('retry');
 
     const state = {
-      segments: [],
-      cars: [],
-      trackLength: 0,
-      position: 0,
-      speed: 0,
-      playerX: 0,
-      boost: 1,
-      lap: 1,
-      maxLap: 3,
-      raceStartTime: performance.now(),
-      raceFinished: false,
-      raceCountdown: 3,
-      countdownDone: false,
-      crashTimer: 0,
-      bestTime: Number(localStorage.getItem('yabame-best-time') || 0)
+      running: false,
+      ended: false,
+      x: 20,
+      v: 0,
+      targetX: 0,
+      braking: false
     };
 
-    function resize() {
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      canvas.style.width = width + 'px';
-      canvas.style.height = height + 'px';
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    function reset() {
+      const min = 560;
+      const max = 820;
+      state.running = false;
+      state.ended = false;
+      state.braking = false;
+      state.x = 20;
+      state.v = 0;
+      state.targetX = Math.floor(Math.random() * (max - min + 1)) + min;
+      target.style.right = `${1000 - state.targetX - 90}px`;
+      updateHud();
+      messageEl.textContent = 'スペースキーで発車、もう一度押してブレーキ！';
+      scoreEl.textContent = '誤差: -- cm';
     }
 
-    function easeIn(a, b, p) { return a + (b - a) * p * p; }
-    function easeOut(a, b, p) { return a + (b - a) * (1 - (1 - p) * (1 - p)); }
-    function easeInOut(a, b, p) { return a + (b - a) * ((-Math.cos(p * Math.PI) / 2) + 0.5); }
-
-    function addSegment(curve, y) {
-      const n = state.segments.length;
-      state.segments.push({
-        index: n,
-        curve,
-        y,
-        sprites: Math.random() > 0.6 ? [Math.random() > 0.5 ? 'tree' : 'lamp'] : [],
-        color: Math.floor(n / rumbleLength) % 2
-          ? { road: '#1f2937', grass: '#3f6212', rumble: '#f8fafc', lane: '#e2e8f0' }
-          : { road: '#111827', grass: '#365314', rumble: '#ef4444', lane: '#cbd5e1' }
-      });
+    function updateHud() {
+      const remainPx = state.targetX - (state.x + 150);
+      const remainM = (remainPx * 0.45).toFixed(1);
+      speedEl.textContent = `速度: ${Math.max(0, state.v * 7.8).toFixed(0)} km/h`;
+      distanceEl.textContent = `残り: ${remainM} m`;
+      train.style.left = `${state.x}px`;
     }
 
-    function addRoad(enter, hold, leave, curve, hill) {
-      const startY = state.segments.length ? state.segments[state.segments.length - 1].y : 0;
-      const endY = startY + hill * segmentLength;
-      const total = enter + hold + leave;
+    function evaluate() {
+      const stopPoint = state.x + 150;
+      const targetCenter = state.targetX + 45;
+      const diffPx = stopPoint - targetCenter;
+      const diffCm = Math.abs(diffPx * 4.5);
+      let rank = '🤡 くそげー職人';
+      if (diffCm <= 10) rank = '🏆 神運転士';
+      else if (diffCm <= 50) rank = '🥈 かなり上手い';
+      else if (diffCm <= 120) rank = '🙂 まぁ普通';
 
-      for (let n = 0; n < enter; n++) addSegment(easeIn(0, curve, n / enter), easeInOut(startY, endY, n / total));
-      for (let n = 0; n < hold; n++) addSegment(curve, easeInOut(startY, endY, (enter + n) / total));
-      for (let n = 0; n < leave; n++) addSegment(easeOut(curve, 0, n / leave), easeInOut(startY, endY, (enter + hold + n) / total));
+      const direction = diffPx > 0 ? 'オーバーラン' : '手前停車';
+      messageEl.textContent = `${rank}：${direction}`;
+      scoreEl.textContent = `誤差: ${diffCm.toFixed(1)} cm`;
     }
 
-    function buildTrack() {
-      state.segments = [];
-      addRoad(35, 55, 35, 0, 0);
-      addRoad(40, 60, 40, 0.8, 14);
-      addRoad(30, 50, 30, -1.2, -16);
-      addRoad(35, 65, 35, 1.1, 12);
-      addRoad(28, 40, 28, -0.7, 0);
-      addRoad(22, 45, 22, 0, 18);
-      addRoad(45, 85, 45, 0.7, -20);
-      addRoad(24, 45, 24, -1.3, 10);
-      addRoad(35, 70, 35, 0, 0);
-      state.trackLength = state.segments.length * segmentLength;
-    }
-
-    function addCars(count = 28) {
-      state.cars = [];
-      for (let i = 0; i < count; i++) {
-        state.cars.push({
-          z: (i * state.trackLength / count) + Math.random() * 400,
-          x: (Math.random() * 2 - 1) * 0.8,
-          speed: 3200 + Math.random() * 2400,
-          color: ['#f97316', '#22d3ee', '#34d399', '#a78bfa', '#f43f5e'][i % 5]
-        });
-      }
-    }
-
-    function findSegment(z) {
-      return state.segments[Math.floor(z / segmentLength) % state.segments.length];
-    }
-
-    function project(worldX, worldY, worldZ, cameraX, cameraY, cameraZ) {
-      const cameraRelativeX = worldX - cameraX;
-      const cameraRelativeY = worldY - cameraY;
-      const cameraRelativeZ = worldZ - cameraZ;
-      const scale = cameraDepth / cameraRelativeZ;
-      return {
-        cameraZ: cameraRelativeZ,
-        scale,
-        x: Math.round((width / 2) + (scale * cameraRelativeX * width / 2)),
-        y: Math.round((height / 2) - (scale * cameraRelativeY * height / 2)),
-        w: Math.round(scale * roadWidth * width / 2)
-      };
-    }
-
-    function drawPolygon(x1, y1, x2, y2, x3, y3, x4, y4, color) {
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.lineTo(x3, y3);
-      ctx.lineTo(x4, y4);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    function drawSky(now) {
-      const sky = ctx.createLinearGradient(0, 0, 0, height * 0.65);
-      sky.addColorStop(0, '#1e3a8a');
-      sky.addColorStop(0.5, '#0f172a');
-      sky.addColorStop(1, '#030712');
-      ctx.fillStyle = sky;
-      ctx.fillRect(0, 0, width, height);
-
-      const sunX = width * 0.78;
-      const sunY = height * 0.17;
-      const sunR = 65;
-      const g = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, sunR);
-      g.addColorStop(0, 'rgba(250,204,21,0.65)');
-      g.addColorStop(1, 'rgba(250,204,21,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
-      ctx.fill();
-
-      for (let i = 0; i < 5; i++) {
-        const px = ((now * 0.003 * (i + 1)) % (width + 500)) - 250;
-        const y = height * 0.24 + i * 24;
-        ctx.fillStyle = `rgba(148,163,184,${0.08 - i * 0.012})`;
-        ctx.beginPath();
-        ctx.ellipse(px, y, 140 + i * 30, 30 + i * 8, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      ctx.fillStyle = '#1f2937';
-      for (let i = 0; i < 7; i++) {
-        const h = 120 + Math.sin(i * 1.7) * 35;
-        const mx = (i / 6) * width;
-        ctx.beginPath();
-        ctx.moveTo(mx - 240, height * 0.5);
-        ctx.lineTo(mx, height * 0.5 - h);
-        ctx.lineTo(mx + 240, height * 0.5);
-        ctx.closePath();
-        ctx.fill();
-      }
-    }
-
-    function drawRoadside(type, x, y, scale, clipY) {
-      if (y >= clipY) return;
-      if (type === 'tree') {
-        const h = 90 * scale;
-        const w = 45 * scale;
-        ctx.fillStyle = '#7c2d12';
-        ctx.fillRect(x - w * 0.1, y - h * 0.35, w * 0.2, h * 0.35);
-        ctx.fillStyle = '#16a34a';
-        ctx.beginPath();
-        ctx.ellipse(x, y - h * 0.65, w * 0.9, h * 0.48, 0, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
-        const h = 95 * scale;
-        ctx.fillStyle = '#9ca3af';
-        ctx.fillRect(x - 2 * scale, y - h, 4 * scale, h);
-        ctx.fillStyle = '#fde047';
-        ctx.beginPath();
-        ctx.arc(x, y - h, 8 * scale, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    function updateCars(dt) {
-      for (const car of state.cars) {
-        car.z += car.speed * dt;
-        while (car.z >= state.trackLength) car.z -= state.trackLength;
-        car.x += Math.sin((car.z + car.speed) * 0.00017) * dt * 0.42;
-        car.x = Math.max(-0.9, Math.min(0.9, car.x));
-      }
-    }
-
-    function resetRace() {
-      state.position = 0;
-      state.speed = 0;
-      state.playerX = 0;
-      state.boost = 1;
-      state.lap = 1;
-      state.raceFinished = false;
-      state.raceCountdown = 3;
-      state.countdownDone = false;
-      state.raceStartTime = performance.now();
-      state.crashTimer = 0;
-      ui.msg.textContent = '3...';
-      addCars();
-    }
-
-    function update(dt, now) {
-      if (!state.countdownDone) {
-        state.raceCountdown -= dt;
-        if (state.raceCountdown > 0) ui.msg.textContent = `${Math.ceil(state.raceCountdown)}...`;
-        else {
-          state.countdownDone = true;
-          ui.msg.textContent = 'GO!';
-          setTimeout(() => {
-            if (!state.raceFinished) ui.msg.textContent = '↑/W 加速 ↓/S ブレーキ ←→/A,D ハンドル Shift ブースト';
-          }, 700);
-        }
-        return;
-      }
-
-      if (state.raceFinished) {
-        if (key.Enter || key[' ']) resetRace();
-        return;
-      }
-
-      const accel = key.ArrowUp || key.w;
-      const brake = key.ArrowDown || key.s;
-      const left = key.ArrowLeft || key.a;
-      const right = key.ArrowRight || key.d;
-      const boostOn = (key.Shift || key.ShiftLeft || key.ShiftRight) && state.boost > 0.03 && state.speed > 4300;
-
-      const maxSpeed = 9800;
-      if (accel) state.speed += 6200 * dt;
-      else state.speed -= 2600 * dt;
-      if (brake) state.speed -= 8600 * dt;
-
-      if (boostOn) {
-        state.speed += 9800 * dt;
-        state.boost = Math.max(0, state.boost - dt * 0.26);
-      } else state.boost = Math.min(1, state.boost + dt * 0.11);
-
-      const segment = findSegment(state.position + 600);
-      const steer = 2.0 * (state.speed / maxSpeed);
-      if (left) state.playerX -= steer * dt;
-      if (right) state.playerX += steer * dt;
-      state.playerX -= segment.curve * 0.45 * (state.speed / maxSpeed) * dt;
-
-      if (Math.abs(state.playerX) > 1) state.speed -= 4200 * dt;
-      state.playerX = Math.max(-1.22, Math.min(1.22, state.playerX));
-      state.speed = Math.max(0, Math.min(maxSpeed * 1.18, state.speed));
-
-      state.position += state.speed * dt;
-      updateCars(dt);
-
-      if (state.position >= state.trackLength) {
-        state.position -= state.trackLength;
-        state.lap += 1;
-        if (state.lap > state.maxLap) {
-          state.raceFinished = true;
-          const total = (now - state.raceStartTime) / 1000;
-          ui.msg.textContent = `FINISH ${total.toFixed(2)}s  Enter/Spaceで再スタート`;
-          if (!state.bestTime || total < state.bestTime) {
-            state.bestTime = total;
-            localStorage.setItem('yabame-best-time', String(total));
+    function gameLoop() {
+      if (state.ended) return;
+      if (state.running) {
+        if (state.braking) {
+          state.v -= 0.22;
+          if (state.v <= 0) {
+            state.v = 0;
+            state.running = false;
+            state.ended = true;
+            evaluate();
           }
         } else {
-          ui.msg.textContent = `LAP ${state.lap}/${state.maxLap}`;
-          setTimeout(() => {
-            if (!state.raceFinished) ui.msg.textContent = '↑/W 加速 ↓/S ブレーキ ←→/A,D ハンドル Shift ブースト';
-          }, 800);
-        }
-      }
-
-      if (state.crashTimer > 0) state.crashTimer -= dt;
-      for (const car of state.cars) {
-        let dz = car.z - state.position;
-        if (dz < -state.trackLength / 2) dz += state.trackLength;
-        if (dz > state.trackLength / 2) dz -= state.trackLength;
-        if (dz > 0 && dz < 220 && Math.abs(state.playerX - car.x) < 0.18 && state.crashTimer <= 0) {
-          state.speed *= 0.38;
-          state.crashTimer = 0.7;
-          ui.msg.textContent = '接触！ラインを整えろ！';
-          setTimeout(() => {
-            if (!state.raceFinished) ui.msg.textContent = '↑/W 加速 ↓/S ブレーキ ←→/A,D ハンドル Shift ブースト';
-          }, 650);
-        }
-      }
-    }
-
-    function drawOpponent(car, maxY) {
-      let dz = car.z - state.position;
-      if (dz <= 0) dz += state.trackLength;
-      if (dz > drawDistance * segmentLength) return;
-
-      const seg = findSegment(car.z);
-      const segIndex = Math.floor(car.z / segmentLength);
-      const pct = (car.z % segmentLength) / segmentLength;
-      const y1 = seg.y;
-      const nextY = state.segments[(segIndex + 1) % state.segments.length].y;
-      const worldY = y1 + (nextY - y1) * pct;
-      const projected = project(car.x * roadWidth * 0.52, worldY + 30, car.z, state.playerX * roadWidth, cameraHeight, state.position);
-
-      if (projected.cameraZ <= cameraDepth || projected.y >= maxY) return;
-
-      const w = Math.max(12, projected.w * 0.18);
-      const h = Math.max(18, projected.w * 0.09);
-      ctx.fillStyle = car.color;
-      ctx.fillRect(projected.x - w / 2, projected.y - h, w, h);
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(projected.x - w * 0.28, projected.y - h * 0.82, w * 0.56, h * 0.28);
-    }
-
-    function render(now) {
-      drawSky(now);
-
-      const baseIndex = Math.floor(state.position / segmentLength);
-      const basePercent = (state.position % segmentLength) / segmentLength;
-      const playerSegment = state.segments[baseIndex];
-      const playerY = playerSegment.y + (state.segments[(baseIndex + 1) % state.segments.length].y - playerSegment.y) * basePercent;
-
-      let x = 0;
-      let dx = -(playerSegment.curve * basePercent);
-      let maxY = height;
-      const cameraZ = state.position;
-      const cameraX = state.playerX * roadWidth;
-      const cameraY = cameraHeight + playerY;
-
-
-      for (let n = 0; n < drawDistance; n++) {
-        const index = (baseIndex + n) % state.segments.length;
-        const seg = state.segments[index];
-        const nextIndex = (index + 1) % state.segments.length;
-        const looped = index < baseIndex;
-
-        const z1 = index * segmentLength + (looped ? state.trackLength : 0);
-        const z2 = nextIndex * segmentLength + (nextIndex <= baseIndex ? state.trackLength : 0);
-
-        const p1 = project(x, seg.y, z1, cameraX, cameraY, cameraZ);
-        const p2 = project(x + dx, state.segments[nextIndex].y, z2, cameraX, cameraY, cameraZ);
-
-        x += dx;
-        dx += seg.curve;
-
-        if (p1.cameraZ <= cameraDepth || p2.cameraZ <= cameraDepth || p2.y >= p1.y || p2.y >= maxY) continue;
-
-        const fog = n / drawDistance;
-
-        drawPolygon(0, p2.y, width, p2.y, width, maxY, 0, maxY, seg.color.grass);
-        drawPolygon(p1.x - p1.w * 1.12, p1.y, p1.x + p1.w * 1.12, p1.y, p2.x + p2.w * 1.12, p2.y, p2.x - p2.w * 1.12, p2.y, seg.color.rumble);
-        drawPolygon(p1.x - p1.w, p1.y, p1.x + p1.w, p1.y, p2.x + p2.w, p2.y, p2.x - p2.w, p2.y, seg.color.road);
-
-        const laneW1 = p1.w * 2 / 3;
-        const laneW2 = p2.w * 2 / 3;
-        for (let lane = 1; lane < 3; lane++) {
-          const f = lane / 3;
-          const lx1 = p1.x - laneW1 + laneW1 * 2 * f;
-          const lx2 = p2.x - laneW2 + laneW2 * 2 * f;
-          drawPolygon(lx1 - p1.w * 0.008, p1.y, lx1 + p1.w * 0.008, p1.y, lx2 + p2.w * 0.008, p2.y, lx2 - p2.w * 0.008, p2.y, seg.color.lane);
+          state.v = Math.min(26, state.v + 0.18);
         }
 
-        ctx.fillStyle = `rgba(2,6,23,${fog * 0.72})`;
-        ctx.fillRect(0, p2.y, width, Math.max(1, maxY - p2.y));
+        state.x += state.v;
 
-        if (seg.sprites.length) {
-          const scale = p2.w / 320;
-          drawRoadside(seg.sprites[0], p2.x - p2.w * 1.35, p2.y, scale, maxY);
-          drawRoadside(seg.sprites[0], p2.x + p2.w * 1.35, p2.y, scale, maxY);
+        if (state.x > 870) {
+          state.ended = true;
+          messageEl.textContent = '🚨 駅を通り過ぎた！';
+          scoreEl.textContent = '誤差: 計測不能';
         }
-
-        maxY = p2.y;
+        updateHud();
       }
-
-      for (const car of state.cars) drawOpponent(car, maxY);
-
-      const speedPulse = Math.sin(now * 0.02) * 2;
-      const px = width * 0.5 + state.playerX * width * 0.25;
-      const py = height * 0.865 + speedPulse;
-
-      ctx.fillStyle = 'rgba(56,189,248,0.2)';
-      ctx.beginPath();
-      ctx.ellipse(px, py + 36, 72, 20, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = state.crashTimer > 0 ? '#ef4444' : '#84cc16';
-      ctx.beginPath();
-      ctx.moveTo(px - 68, py + 18);
-      ctx.lineTo(px - 48, py - 24);
-      ctx.lineTo(px + 48, py - 24);
-      ctx.lineTo(px + 68, py + 18);
-      ctx.lineTo(px + 40, py + 30);
-      ctx.lineTo(px - 40, py + 30);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = '#1e293b';
-      ctx.beginPath();
-      ctx.moveTo(px - 32, py - 14);
-      ctx.lineTo(px - 16, py - 26);
-      ctx.lineTo(px + 16, py - 26);
-      ctx.lineTo(px + 32, py - 14);
-      ctx.lineTo(px + 22, py - 2);
-      ctx.lineTo(px - 22, py - 2);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = '#111827';
-      ctx.fillRect(px - 60, py + 18, 120, 10);
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillRect(px - 60, py + 16, 22, 8);
-      ctx.fillRect(px + 38, py + 16, 22, 8);
-
-      if (state.speed > 4300) {
-        const flame = 12 + (state.speed / 9800) * 22;
-        ctx.fillStyle = 'rgba(34,211,238,0.9)';
-        ctx.beginPath();
-        ctx.moveTo(px - 12, py + 26);
-        ctx.lineTo(px, py + 26 + flame);
-        ctx.lineTo(px + 12, py + 26);
-        ctx.fill();
-      }
-
-      const raceTime = state.raceFinished ? (state.bestTime || (now - state.raceStartTime) / 1000) : (now - state.raceStartTime) / 1000;
-      ui.speed.textContent = `SPEED ${Math.floor((state.speed / 9800) * 360)} km/h`;
-      ui.lap.textContent = `LAP ${Math.min(state.lap, state.maxLap)}/${state.maxLap}`;
-      ui.time.textContent = `TIME ${raceTime.toFixed(1)}s`;
-      ui.best.textContent = state.bestTime ? `BEST ${state.bestTime.toFixed(2)}s` : 'BEST --';
-      ui.boost.style.transform = `scaleX(${state.boost})`;
+      requestAnimationFrame(gameLoop);
     }
 
-    let last = performance.now();
-    function frame(now) {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      update(dt, now);
-      render(now);
-      requestAnimationFrame(frame);
-    }
+    window.addEventListener('keydown', (event) => {
+      if (event.code !== 'Space') return;
+      event.preventDefault();
 
-    window.addEventListener('keydown', (e) => {
-      key[e.key] = true;
-      if (e.key.startsWith('Arrow') || e.key === ' ') e.preventDefault();
+      if (state.ended) return;
+      if (!state.running) {
+        state.running = true;
+        state.v = 3;
+        messageEl.textContent = '加速中！狙ってスペースでブレーキ！';
+      } else if (!state.braking) {
+        state.braking = true;
+        messageEl.textContent = '急ブレーキ中…祈れ！';
+      }
     });
-    window.addEventListener('keyup', (e) => { key[e.key] = false; });
-    window.addEventListener('resize', resize);
 
-    resize();
-    buildTrack();
-    resetRace();
-    requestAnimationFrame(frame);
+    retryBtn.addEventListener('click', reset);
+
+    reset();
+    requestAnimationFrame(gameLoop);
   </script>
 </body>
 </html>
