@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Eternal Atlas RPG</title>
+  <title>Eternal Atlas RPG - Expanded Edition</title>
   <style>
     :root {
       color-scheme: dark;
@@ -11,139 +11,161 @@
       --panel: rgba(15, 23, 42, 0.9);
       --line: rgba(148, 163, 184, 0.35);
       --accent: #22d3ee;
-      --hp: #22c55e;
-      --mp: #3b82f6;
-      --xp: #f59e0b;
     }
     * { box-sizing: border-box; }
     html, body {
       margin: 0;
       width: 100%;
       height: 100%;
-      overflow: hidden;
+      background: radial-gradient(circle at top, #1e293b, var(--bg) 56%);
+      color: #e2e8f0;
       font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
-      background: radial-gradient(circle at top, #1e293b, var(--bg) 55%);
+      overflow: hidden;
     }
     #app {
       width: 100%;
       height: 100%;
       display: grid;
-      grid-template-columns: minmax(280px, 360px) 1fr minmax(260px, 330px);
-      gap: 12px;
-      padding: 12px;
+      grid-template-columns: 320px 1fr 320px;
+      gap: 10px;
+      padding: 10px;
     }
     .panel {
-      border: 1px solid var(--line);
-      border-radius: 14px;
       background: var(--panel);
-      backdrop-filter: blur(3px);
-      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      min-height: 0;
       display: flex;
       flex-direction: column;
-      min-height: 0;
+      overflow: hidden;
     }
     .panel h2 {
       margin: 0;
-      padding: 10px 12px;
-      font-size: 0.95rem;
-      letter-spacing: 0.08em;
+      padding: 10px;
       border-bottom: 1px solid var(--line);
+      font-size: 0.92rem;
+      letter-spacing: 0.08em;
       color: #bae6fd;
     }
-    #viewWrap {
-      position: relative;
+    .content { padding: 10px; overflow: auto; font-size: 0.9rem; }
+    .entry {
       border: 1px solid var(--line);
-      border-radius: 14px;
-      overflow: hidden;
-      min-height: 0;
+      background: rgba(2, 6, 23, 0.45);
+      border-radius: 10px;
+      padding: 8px;
+      margin-bottom: 8px;
     }
-    #world {
-      width: 100%;
-      height: 100%;
-      display: block;
+    .bar {
+      margin-top: 4px;
+      height: 11px;
+      background: rgba(2, 6, 23, 0.9);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bar div { height: 100%; }
+    .hp { background: linear-gradient(90deg, #22c55e, #86efac); }
+    .mp { background: linear-gradient(90deg, #3b82f6, #7dd3fc); }
+    .xp { background: linear-gradient(90deg, #f59e0b, #fde68a); }
+
+    #viewWrap {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      min-height: 0;
       background: #020617;
     }
+    #world { width: 100%; height: 100%; display: block; }
     #overlay {
       position: absolute;
       inset: 0;
       pointer-events: none;
       display: flex;
-      align-items: flex-start;
       justify-content: center;
-      padding-top: 12px;
+      align-items: flex-start;
+      padding-top: 10px;
+      font-weight: 800;
+      text-shadow: 0 2px 8px #000;
       color: #e0f2fe;
-      font-weight: 700;
-      text-shadow: 0 3px 10px rgba(0,0,0,0.9);
     }
-    .content {
-      padding: 10px 12px;
-      overflow: auto;
-      line-height: 1.45;
-      font-size: 0.9rem;
-    }
-    .statLine { margin-bottom: 7px; }
-    .bar {
-      width: 100%;
-      height: 11px;
-      border-radius: 999px;
-      overflow: hidden;
-      background: rgba(30,41,59,0.9);
-      border: 1px solid rgba(148,163,184,0.3);
-      margin-top: 4px;
-    }
-    .bar > div { height: 100%; }
-    .hp { background: linear-gradient(90deg, #16a34a, #86efac); }
-    .mp { background: linear-gradient(90deg, #2563eb, #7dd3fc); }
-    .xp { background: linear-gradient(90deg, #f59e0b, #fde68a); }
-    #battleCommands {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
-      margin-top: 10px;
-    }
+    #battleCommands { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; }
     button {
       border: 1px solid var(--line);
-      background: rgba(15,23,42,0.9);
-      color: #e2e8f0;
       border-radius: 10px;
+      background: rgba(15, 23, 42, 0.95);
+      color: #e2e8f0;
+      font-weight: 700;
       padding: 9px;
       cursor: pointer;
-      font-weight: 700;
     }
     button:hover { border-color: var(--accent); color: #67e8f9; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
     .log {
       white-space: pre-wrap;
-      font-size: 0.86rem;
-      min-height: 120px;
-      max-height: 250px;
-      overflow: auto;
-      background: rgba(2,6,23,0.65);
-      border-radius: 10px;
+      background: rgba(2, 6, 23, 0.65);
       border: 1px solid var(--line);
+      border-radius: 10px;
       padding: 8px;
+      min-height: 140px;
+      max-height: 260px;
+      overflow: auto;
     }
-    .grid {
+    #battleScreen {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(30,41,59,0.97), rgba(2,6,23,0.98));
+      backdrop-filter: blur(4px);
+      display: none;
+      z-index: 20;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #battleCard {
+      width: min(1000px, 94vw);
+      height: min(620px, 90vh);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.92);
       display: grid;
-      gap: 8px;
+      grid-template-columns: 1fr 1fr;
+      overflow: hidden;
     }
-    .entry {
+    #battleVisual {
+      border-right: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: linear-gradient(180deg, rgba(14, 116, 144, 0.24), rgba(2,6,23,0.85));
+    }
+    #enemySprite {
+      width: min(360px, 40vw);
+      image-rendering: crisp-edges;
+      filter: drop-shadow(0 8px 18px rgba(0,0,0,0.8));
+    }
+    #battleInfo {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .battleTitle { font-size: clamp(1.3rem, 2.5vw, 2rem); font-weight: 800; color: #67e8f9; }
+    #battleLog {
+      flex: 1;
       border: 1px solid var(--line);
       border-radius: 10px;
-      padding: 7px;
-      background: rgba(2, 6, 23, 0.5);
-    }
-    .legend {
-      font-size: 0.82rem;
-      opacity: 0.9;
-      margin-top: 6px;
+      background: rgba(2, 6, 23, 0.6);
+      padding: 10px;
+      overflow: auto;
+      white-space: pre-wrap;
     }
     @media (max-width: 1100px) {
-      #app {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto minmax(320px, 45vh) auto;
-      }
-      .panel { max-height: 32vh; }
+      #app { grid-template-columns: 1fr; grid-template-rows: auto minmax(320px, 45vh) auto; }
+      .panel { max-height: 30vh; }
+      #battleCard { grid-template-columns: 1fr; height: auto; }
+      #battleVisual { padding: 14px; border-right: none; border-bottom: 1px solid var(--line); }
     }
   </style>
 </head>
@@ -151,9 +173,9 @@
   <div id="app">
     <section class="panel">
       <h2>HERO STATUS</h2>
-      <div class="content" id="heroPanel"></div>
+      <div id="heroPanel" class="content"></div>
       <h2>QUEST LOG</h2>
-      <div class="content" id="questPanel"></div>
+      <div id="questPanel" class="content"></div>
     </section>
 
     <section id="viewWrap">
@@ -162,429 +184,454 @@
     </section>
 
     <section class="panel">
-      <h2>BATTLE / COMMAND</h2>
+      <h2>COMMAND / LOG</h2>
       <div class="content">
-        <div id="battleState">探索中: WASD / 矢印キーで移動、Eで調査</div>
+        <div id="state">探索中: WASD / 矢印で移動, Eで調査</div>
         <div id="battleCommands">
           <button id="attackBtn">攻撃</button>
           <button id="magicBtn">魔法</button>
           <button id="guardBtn">防御</button>
           <button id="itemBtn">回復薬</button>
         </div>
-        <div class="legend">敵と接触するとコマンドバトル。ラスボス撃破が表クリア、深淵の竜撃破が裏クリア。</div>
-        <h2 style="margin-top: 12px;">EVENT LOG</h2>
+        <div class="entry" style="margin-top:8px;">敵と遭遇すると専用バトル画面へ切替。表: 冥王 / 裏: 深淵竜。図鑑完成も目標。</div>
+        <h2 style="margin:10px 0 8px 0; padding:0; border:none;">EVENT LOG</h2>
         <div id="log" class="log"></div>
-        <h2 style="margin-top: 12px;">MONSTER BOOK</h2>
-        <div id="book" class="grid"></div>
+        <h2 style="margin:10px 0 8px 0; padding:0; border:none;">MONSTER BOOK</h2>
+        <div id="book"></div>
       </div>
     </section>
   </div>
 
-  <script>
-    const TILE = 32;
-    const mapRows = [
-      "########################################",
-      "#..v....f...f....M.....f....v.........C#",
-      "#..####..#######.....######..#####..####",
-      "#..f....B....f.....f.......f....#......#",
-      "#..####..###########..#####..#..#.###..#",
-      "#..#..f....K....f....#...#..#..#...#..##",
-      "#..#..###########..###...#..#..###.#...#",
-      "#..#......f....#....f....#..#....#.#.v.#",
-      "#..######..##..#.#########..####.#.###.#",
-      "#..f....#..##..#.....f.........#.#...#.#",
-      "#..####.#..##..###########..##.#.###.#.#",
-      "#......f#..#....f.....f..#..##.#.....#.#",
-      "#.#####.#..#.##########..#..##.#######.#",
-      "#...f...#..#......f.....#..##...f.....##",
-      "#..###..#..###########..#..#####..###..#",
-      "#..#....#....f...f....E.#......#...#..##",
-      "#..#.######.###########.######.###.#...#",
-      "#..#......#.....f....#......#.....#..D.#",
-      "#..####.#.##########.#.####.##########.#",
-      "#..f....#......f.....#....#......f.....#",
-      "########################################"
-    ];
+  <section id="battleScreen">
+    <div id="battleCard">
+      <div id="battleVisual">
+        <img id="enemySprite" alt="enemy sprite" />
+        <div id="enemyName" class="battleTitle"></div>
+        <div id="enemyStats"></div>
+      </div>
+      <div id="battleInfo">
+        <div class="battleTitle">BATTLE COMMAND</div>
+        <div id="battleHero"></div>
+        <div id="battleLog"></div>
+        <div id="battleCommandButtons" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+          <button id="bAttack">攻撃</button>
+          <button id="bMagic">魔法</button>
+          <button id="bGuard">防御</button>
+          <button id="bItem">回復薬</button>
+        </div>
+      </div>
+    </div>
+  </section>
 
-    const world = {
-      width: mapRows[0].length,
-      height: mapRows.length,
-      tiles: mapRows.map(r => r.split("")),
-      events: {
-        C: { name: "王都シルフィア", text: "王都に到達。王からラスボス討伐命令を受諾。" },
-        K: { name: "古城の鍵", text: "古城の鍵を発見。封印城に入れるようになった。", grant: "castleKey" },
-        B: { name: "橋の建設", text: "職人の依頼を受け、橋を建設。深淵エリアへ行けるようになった。", grant: "bridge" },
-        M: { name: "魔導塔", text: "魔導塔で奥義を獲得。魔法威力が上昇。", grant: "tower" },
-        E: { name: "ラスボスの封印城", text: "封印城に突入。" },
-        D: { name: "深淵の祭壇", text: "裏ボスの気配が漂う祭壇。" }
-      }
+  <script>
+    const TILE = 28;
+    const MAP_W = 96;
+    const MAP_H = 72;
+    const VIEW_W = 32;
+    const VIEW_H = 22;
+
+    const canvas = document.getElementById('world');
+    const ctx = canvas.getContext('2d');
+    const heroPanel = document.getElementById('heroPanel');
+    const questPanel = document.getElementById('questPanel');
+    const stateEl = document.getElementById('state');
+    const overlay = document.getElementById('overlay');
+    const logEl = document.getElementById('log');
+    const bookEl = document.getElementById('book');
+
+    const battleScreen = document.getElementById('battleScreen');
+    const enemySprite = document.getElementById('enemySprite');
+    const enemyName = document.getElementById('enemyName');
+    const enemyStats = document.getElementById('enemyStats');
+    const battleHero = document.getElementById('battleHero');
+    const battleLog = document.getElementById('battleLog');
+
+    const spriteSet = {
+      slime: makeSprite('#38bdf8', '#bae6fd', 'slime'),
+      wolf: makeSprite('#94a3b8', '#e2e8f0', 'wolf'),
+      golem: makeSprite('#a78bfa', '#ddd6fe', 'golem'),
+      wyvern: makeSprite('#f97316', '#fed7aa', 'wyvern'),
+      demonlord: makeSprite('#ef4444', '#fecaca', 'lord'),
+      abyssdragon: makeSprite('#22d3ee', '#a5f3fc', 'dragon')
     };
 
+    const key = Object.create(null);
+    let map = [];
+    let battle = null;
+    let anim = 0;
+
     const hero = {
-      x: 2,
-      y: 2,
-      maxHp: 220,
-      hp: 220,
-      maxMp: 70,
-      mp: 70,
-      atk: 24,
+      x: 4,
+      y: 4,
+      maxHp: 240,
+      hp: 240,
+      maxMp: 80,
+      mp: 80,
+      atk: 26,
       def: 12,
       lvl: 1,
       xp: 0,
-      nextXp: 60,
+      nextXp: 70,
       potions: 5,
       weaponTier: 1,
       flags: { castleKey: false, bridge: false, tower: false, clearFront: false, clearTrue: false }
     };
 
-    const encounterTable = [
-      { id: "slime", name: "蒼スライム", hp: 48, atk: 10, def: 4, xp: 18, biome: [".", "v"] },
-      { id: "wolf", name: "影狼", hp: 72, atk: 15, def: 6, xp: 27, biome: ["f", "."] },
-      { id: "golem", name: "遺跡ゴーレム", hp: 128, atk: 20, def: 12, xp: 44, biome: ["M", "#"] },
-      { id: "wyvern", name: "黄昏ワイバーン", hp: 176, atk: 26, def: 14, xp: 72, biome: ["B", "E"] }
+    const encounters = [
+      { id: 'slime', name: '蒼スライム', hp: 58, atk: 11, def: 4, xp: 20, tiles: ['.', 'v'] },
+      { id: 'wolf', name: '影狼', hp: 82, atk: 16, def: 7, xp: 32, tiles: ['f', '.', 'v'] },
+      { id: 'golem', name: '遺跡ゴーレム', hp: 150, atk: 24, def: 15, xp: 60, tiles: ['m', 'r'] },
+      { id: 'wyvern', name: '黄昏ワイバーン', hp: 206, atk: 29, def: 16, xp: 84, tiles: ['w', 'm'] }
     ];
 
     const bosses = {
-      final: { id: "demonlord", name: "冥王アバドン", hp: 480, atk: 36, def: 20, xp: 180 },
-      true: { id: "abyssdragon", name: "深淵竜ネブラ", hp: 700, atk: 44, def: 24, xp: 300 }
+      final: { id: 'demonlord', name: '冥王アバドン', hp: 560, atk: 41, def: 22, xp: 220 },
+      true: { id: 'abyssdragon', name: '深淵竜ネブラ', hp: 790, atk: 49, def: 28, xp: 320 }
+    };
+
+    const events = {
+      C: { name: '王都シルフィア', text: '王都に到達。冥王討伐の勅命を受けた。' },
+      K: { name: '古城の鍵', text: '古城の鍵を回収。封印城へ入れる。', grant: 'castleKey' },
+      B: { name: '橋の建設依頼', text: '素材を運び橋を建設。深淵エリアへ進行可能。', grant: 'bridge' },
+      M: { name: '魔導塔', text: '奥義を習得し魔法火力上昇。', grant: 'tower' },
+      E: { name: '封印城', text: '冥王との決戦が始まる。' },
+      D: { name: '深淵の祭壇', text: '空間が歪み、真の敵が目覚める。' }
     };
 
     const bestiary = new Map();
-    const logEl = document.getElementById("log");
-    const heroPanel = document.getElementById("heroPanel");
-    const questPanel = document.getElementById("questPanel");
-    const battleState = document.getElementById("battleState");
-    const overlay = document.getElementById("overlay");
-    const bookEl = document.getElementById("book");
-    const canvas = document.getElementById("world");
-    const ctx = canvas.getContext("2d");
 
-    const input = Object.create(null);
-    let battle = null;
-    let lastTick = performance.now();
-    let anim = 0;
+    function makeSprite(c1, c2, label) {
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 220'>
+        <defs><radialGradient id='g'><stop offset='0%' stop-color='${c2}'/><stop offset='100%' stop-color='${c1}'/></radialGradient></defs>
+        <rect x='0' y='0' width='220' height='220' fill='transparent'/>
+        <ellipse cx='110' cy='186' rx='70' ry='18' fill='rgba(0,0,0,.35)'/>
+        <path d='M48 162 Q20 90 78 48 Q110 12 142 48 Q200 90 172 162 Z' fill='url(#g)' stroke='rgba(255,255,255,.65)' stroke-width='4'/>
+        <circle cx='88' cy='108' r='10' fill='white'/><circle cx='132' cy='108' r='10' fill='white'/>
+        <circle cx='88' cy='108' r='4' fill='#0f172a'/><circle cx='132' cy='108' r='4' fill='#0f172a'/>
+        <path d='M80 142 Q110 162 140 142' stroke='rgba(15,23,42,.8)' stroke-width='5' fill='none' stroke-linecap='round'/>
+        <text x='110' y='206' text-anchor='middle' font-size='18' fill='rgba(226,232,240,.9)' font-family='sans-serif'>${label}</text>
+      </svg>`;
+      return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    }
 
     function log(msg) {
-      logEl.textContent = `${msg}\n${logEl.textContent}`.slice(0, 3500);
+      logEl.textContent = `${msg}\n${logEl.textContent}`.slice(0, 4200);
+    }
+    function battleLogPush(msg) {
+      battleLog.textContent = `${msg}\n${battleLog.textContent}`.slice(0, 2400);
+      log(msg);
     }
 
-    function wrapBar(value, max, cls) {
-      const per = Math.max(0, Math.min(100, value / max * 100));
-      return `<div class="bar"><div class="${cls}" style="width:${per}%"></div></div>`;
+    function buildMap() {
+      map = Array.from({ length: MAP_H }, (_, y) =>
+        Array.from({ length: MAP_W }, (_, x) => {
+          if (x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1) return '#';
+          const n = Math.sin(x * 0.28) + Math.cos(y * 0.23) + Math.sin((x + y) * 0.16);
+          if (n > 1.55) return 'm';
+          if (n < -1.3) return 'w';
+          if ((x * y) % 13 === 0) return 'f';
+          if ((x + y) % 17 === 0) return 'v';
+          if ((x + y) % 19 === 0) return 'r';
+          return '.';
+        })
+      );
+
+      // 固定イベント
+      place(8, 8, 'C');
+      place(27, 14, 'K');
+      place(46, 24, 'B');
+      place(61, 18, 'M');
+      place(78, 48, 'E');
+      place(89, 62, 'D');
+
+      // 移動しやすい道
+      for (let x = 1; x < MAP_W - 1; x++) map[8][x] = '.';
+      for (let y = 8; y <= 62; y++) map[y][20] = '.';
+      for (let x = 20; x <= 90; x++) map[62][x] = '.';
+      place(8, 8, 'C'); place(27, 14, 'K'); place(46, 24, 'B'); place(61, 18, 'M'); place(78, 48, 'E'); place(89, 62, 'D');
     }
 
-    function refreshUI() {
-      heroPanel.innerHTML = `
-        <div class="statLine"><b>Lv.${hero.lvl} 探索者アルト</b></div>
-        <div class="statLine">HP ${Math.ceil(hero.hp)} / ${hero.maxHp}${wrapBar(hero.hp, hero.maxHp, "hp")}</div>
-        <div class="statLine">MP ${Math.ceil(hero.mp)} / ${hero.maxMp}${wrapBar(hero.mp, hero.maxMp, "mp")}</div>
-        <div class="statLine">XP ${hero.xp} / ${hero.nextXp}${wrapBar(hero.xp, hero.nextXp, "xp")}</div>
-        <div class="statLine">攻撃 ${hero.atk} / 防御 ${hero.def} / 回復薬 ${hero.potions}</div>
-      `;
+    function place(x, y, ch) { if (map[y] && map[y][x]) map[y][x] = ch; }
 
-      questPanel.innerHTML = `
-        <div class="entry">表クリア条件: 冥王アバドンを倒す ${hero.flags.clearFront ? "✅" : "⬜"}</div>
-        <div class="entry">裏クリア条件: 深淵竜ネブラを倒す ${hero.flags.clearTrue ? "✅" : "⬜"}</div>
-        <div class="entry">古城の鍵を入手 ${hero.flags.castleKey ? "✅" : "⬜"}</div>
-        <div class="entry">橋を建設 ${hero.flags.bridge ? "✅" : "⬜"}</div>
-        <div class="entry">魔導塔の奥義を習得 ${hero.flags.tower ? "✅" : "⬜"}</div>
-        <div class="entry">図鑑登録数 ${bestiary.size} / 6</div>
-        <div class="legend">目安プレイボリューム: 探索と育成を含め約3時間想定。</div>
-      `;
-
-      bookEl.innerHTML = ["slime", "wolf", "golem", "wyvern", "demonlord", "abyssdragon"].map(id => {
-        if (!bestiary.has(id)) return `<div class="entry">${id} : ???</div>`;
-        const e = bestiary.get(id);
-        return `<div class="entry"><b>${e.name}</b><br>HP:${e.hp} ATK:${e.atk} DEF:${e.def}<br>${e.note}</div>`;
-      }).join("");
-
-      if (!battle) {
-        battleState.textContent = `探索中: WASD / 矢印移動・E調査 | 地点(${hero.x},${hero.y})`;
-      }
+    function tile(x, y) {
+      if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) return '#';
+      return map[y][x];
     }
 
-    function levelCheck() {
+    function isPassable(ch) {
+      if (ch === '#') return false;
+      if (ch === 'E' && !hero.flags.castleKey) return false;
+      if (ch === 'D' && !hero.flags.bridge) return false;
+      return true;
+    }
+
+    function gainLevel() {
       while (hero.xp >= hero.nextXp) {
         hero.xp -= hero.nextXp;
         hero.lvl++;
-        hero.nextXp = Math.floor(hero.nextXp * 1.35);
-        hero.maxHp += 38;
-        hero.maxMp += 11;
-        hero.atk += 6;
+        hero.nextXp = Math.floor(hero.nextXp * 1.34);
+        hero.maxHp += 42;
+        hero.maxMp += 12;
+        hero.atk += 7;
         hero.def += 4;
         hero.hp = hero.maxHp;
         hero.mp = hero.maxMp;
         hero.potions++;
-        log(`レベルアップ！ Lv${hero.lvl} になった。能力上昇＆全快。`);
+        log(`レベルアップ！ Lv${hero.lvl}。能力上昇＆全回復。`);
       }
     }
 
-    function tileAt(x, y) {
-      if (x < 0 || y < 0 || x >= world.width || y >= world.height) return "#";
-      return world.tiles[y][x];
-    }
-
-    function passable(tile) {
-      if (tile === "#") return false;
-      if (tile === "E" && !hero.flags.castleKey) return false;
-      if (tile === "D" && !hero.flags.bridge) return false;
-      return true;
-    }
-
-    function discoverEnemy(enemy, note="遭遇") {
+    function discover(enemy) {
       if (!bestiary.has(enemy.id)) {
-        bestiary.set(enemy.id, { ...enemy, note });
+        bestiary.set(enemy.id, { ...enemy });
         log(`図鑑登録: ${enemy.name}`);
       }
     }
 
     function startBattle(enemyData) {
-      battle = {
-        enemy: JSON.parse(JSON.stringify(enemyData)),
-        turn: 1,
-        guarding: false
-      };
-      discoverEnemy(enemyData, "撃破して情報解析済み");
-      battleState.textContent = `${battle.enemy.name} が出現！ コマンドを選択`;
-      overlay.textContent = `⚔ BATTLE: ${battle.enemy.name}`;
-      log(`${battle.enemy.name} が立ちはだかる！`);
-    }
-
-    function enemyTurn() {
-      if (!battle) return;
-      let dmg = Math.max(1, battle.enemy.atk - hero.def + Math.floor(Math.random() * 10) - 4);
-      if (battle.guarding) dmg = Math.floor(dmg * 0.45);
-      hero.hp -= dmg;
-      log(`${battle.enemy.name}の攻撃 ${dmg} ダメージ`);
-      battle.guarding = false;
-      if (hero.hp <= 0) {
-        hero.hp = 1;
-        hero.x = 2;
-        hero.y = 2;
-        battle = null;
-        overlay.textContent = "";
-        log("力尽きた…拠点に戻された。HP1で再開。回復して再挑戦しよう。");
-      }
+      battle = { enemy: JSON.parse(JSON.stringify(enemyData)), guarding: false };
+      discover(enemyData);
+      enemySprite.src = spriteSet[enemyData.id] || spriteSet.slime;
+      enemyName.textContent = enemyData.name;
+      enemyStats.textContent = `HP ${enemyData.hp} / ATK ${enemyData.atk} / DEF ${enemyData.def}`;
+      battleLog.textContent = '';
+      battleLogPush(`${enemyData.name} が現れた！`);
+      battleScreen.style.display = 'flex';
+      overlay.textContent = `⚔ ${enemyData.name} と交戦中`;
+      updateBattleHero();
     }
 
     function endBattle(victory) {
       if (!battle) return;
       if (victory) {
         hero.xp += battle.enemy.xp;
-        log(`${battle.enemy.name}を撃破！ XP +${battle.enemy.xp}`);
-        if (battle.enemy.id === "demonlord") {
+        battleLogPush(`${battle.enemy.name} 撃破！ XP +${battle.enemy.xp}`);
+        if (battle.enemy.id === 'demonlord') {
           hero.flags.clearFront = true;
-          log("表クリア達成！ だが深淵には更なる脅威が眠る。");
+          battleLogPush('表クリア達成。深淵の祭壇が反応し始めた。');
         }
-        if (battle.enemy.id === "abyssdragon") {
+        if (battle.enemy.id === 'abyssdragon') {
           hero.flags.clearTrue = true;
-          log("裏クリア達成！ 真の平和が訪れた。図鑑完成を目指そう。");
+          battleLogPush('裏クリア達成！ 真エンド条件を満たした。');
         }
-        levelCheck();
+        gainLevel();
       }
       battle = null;
-      overlay.textContent = "";
+      battleScreen.style.display = 'none';
+      overlay.textContent = '';
       refreshUI();
     }
 
-    function playerCommand(type) {
+    function enemyAct() {
+      if (!battle) return;
+      let dmg = Math.max(1, battle.enemy.atk - hero.def + Math.floor(Math.random() * 10) - 3);
+      if (battle.guarding) dmg = Math.floor(dmg * 0.45);
+      hero.hp -= dmg;
+      battleLogPush(`${battle.enemy.name}の攻撃 ${dmg} ダメージ`);
+      battle.guarding = false;
+      if (hero.hp <= 0) {
+        hero.hp = 1;
+        hero.x = 4; hero.y = 4;
+        battleLogPush('倒れた…拠点へ転送。HP1で再開。');
+        battle = null;
+        battleScreen.style.display = 'none';
+        overlay.textContent = '';
+      }
+    }
+
+    function playerAct(cmd) {
       if (!battle) return;
       const e = battle.enemy;
-      if (type === "attack") {
+      if (cmd === 'attack') {
         const dmg = Math.max(1, hero.atk + hero.weaponTier * 3 - e.def + Math.floor(Math.random() * 12));
         e.hp -= dmg;
-        log(`攻撃！ ${e.name}に ${dmg} ダメージ`);
-      } else if (type === "magic") {
-        const cost = 12;
-        if (hero.mp < cost) {
-          log("MPが足りない！");
-          return;
-        }
-        hero.mp -= cost;
-        const boost = hero.flags.tower ? 1.8 : 1.3;
-        const dmg = Math.floor((hero.atk * boost) + (hero.lvl * 2) + Math.random() * 18);
+        battleLogPush(`攻撃！ ${dmg} ダメージ`);
+      } else if (cmd === 'magic') {
+        if (hero.mp < 12) { battleLogPush('MPが足りない。'); return; }
+        hero.mp -= 12;
+        const boost = hero.flags.tower ? 1.8 : 1.35;
+        const dmg = Math.floor(hero.atk * boost + hero.lvl * 2 + Math.random() * 18);
         e.hp -= dmg;
-        log(`魔法《スターブレイク》! ${dmg} ダメージ`);
-      } else if (type === "guard") {
+        battleLogPush(`魔法《スターブレイク》 ${dmg} ダメージ`);
+      } else if (cmd === 'guard') {
         battle.guarding = true;
-        log("防御体勢を取った。次の被ダメージを軽減。");
-      } else if (type === "item") {
-        if (hero.potions <= 0) {
-          log("回復薬がない！");
-          return;
-        }
+        battleLogPush('防御体勢。次ダメージ軽減。');
+      } else if (cmd === 'item') {
+        if (hero.potions <= 0) { battleLogPush('回復薬がない。'); return; }
         hero.potions--;
-        const heal = Math.min(hero.maxHp - hero.hp, 85);
+        const heal = Math.min(hero.maxHp - hero.hp, 95);
         hero.hp += heal;
-        log(`回復薬でHPを ${heal} 回復`);
+        battleLogPush(`回復薬でHP ${heal} 回復`);
       }
 
-      if (e.hp <= 0) {
-        endBattle(true);
-        return;
-      }
-
-      enemyTurn();
+      if (e.hp <= 0) { endBattle(true); return; }
+      enemyAct();
+      updateBattleHero();
       refreshUI();
-      if (battle) {
-        battleState.textContent = `${e.name} HP ${Math.max(0, Math.ceil(e.hp))} | あなたの行動`;
-      }
+      if (battle) enemyStats.textContent = `HP ${Math.max(0, Math.ceil(e.hp))} / ATK ${e.atk} / DEF ${e.def}`;
     }
 
-    function checkEvent(tile) {
-      if (!world.events[tile]) return;
-      const ev = world.events[tile];
+    function checkEvent(ch) {
+      if (!events[ch]) return;
+      const ev = events[ch];
       log(`[イベント] ${ev.name}: ${ev.text}`);
       if (ev.grant && !hero.flags[ev.grant]) {
         hero.flags[ev.grant] = true;
-        if (ev.grant === "tower") hero.weaponTier = 2;
+        if (ev.grant === 'tower') hero.weaponTier = 2;
       }
-      if (tile === "E") {
-        startBattle(bosses.final);
-      }
-      if (tile === "D" && hero.flags.clearFront) {
-        startBattle(bosses.true);
-      } else if (tile === "D" && !hero.flags.clearFront) {
-        log("深淵の祭壇は沈黙している。まずは冥王を倒す必要がある。");
+      if (ch === 'E') startBattle(bosses.final);
+      if (ch === 'D') {
+        if (!hero.flags.clearFront) log('祭壇は沈黙している。まず冥王を倒そう。');
+        else startBattle(bosses.true);
       }
     }
 
-    function randomEncounter(tile) {
-      if (battle || "#EKCD".includes(tile)) return;
-      const rate = tile === "f" ? 0.18 : tile === "v" ? 0.15 : 0.1;
+    function randomEncounter(ch) {
+      if (battle || '#CKBMED'.includes(ch)) return;
+      const rate = ch === 'f' ? 0.2 : ch === 'm' ? 0.22 : ch === 'w' ? 0.19 : 0.12;
       if (Math.random() > rate) return;
-      const pool = encounterTable.filter(e => e.biome.includes(tile) || e.biome.includes("."));
+      const pool = encounters.filter(e => e.tiles.includes(ch) || e.tiles.includes('.'));
       const enemy = pool[Math.floor(Math.random() * pool.length)];
       startBattle(enemy);
     }
 
-    function moveHero(dx, dy) {
+    function move(dx, dy) {
       if (battle) return;
       const nx = hero.x + dx;
       const ny = hero.y + dy;
-      const tile = tileAt(nx, ny);
-      if (!passable(tile)) {
-        log(tile === "E" ? "封印城には鍵が必要だ。" : tile === "D" ? "深淵へ渡る橋がまだない。" : "進めない。");
+      const t = tile(nx, ny);
+      if (!isPassable(t)) {
+        log(t === 'E' ? '封印城へは鍵が必要。' : t === 'D' ? '深淵への橋が必要。' : '進めない。');
         return;
       }
-      hero.x = nx;
-      hero.y = ny;
-      if (world.events[tile] && ["K", "B", "M"].includes(tile)) checkEvent(tile);
-      randomEncounter(tile);
+      hero.x = nx; hero.y = ny;
+      if (events[t] && ['K', 'B', 'M'].includes(t)) checkEvent(t);
+      randomEncounter(t);
       refreshUI();
     }
 
-    function drawTile(x, y, ch) {
-      const px = x * TILE;
-      const py = y * TILE;
-      const pulse = 0.5 + Math.sin(anim / 400) * 0.18;
-
+    function drawTile(ch, x, y) {
       const palette = {
-        "#": "#334155",
-        ".": "#14532d",
-        "f": "#166534",
-        "v": "#0f766e",
-        "K": "#facc15",
-        "B": "#fb7185",
-        "M": "#a78bfa",
-        "C": "#38bdf8",
-        "E": "#ef4444",
-        "D": "#f97316"
+        '#': '#334155', '.': '#14532d', 'f': '#166534', 'v': '#0f766e',
+        'm': '#4c1d95', 'w': '#0f172a', 'r': '#475569',
+        'C': '#38bdf8', 'K': '#facc15', 'B': '#fb7185', 'M': '#a78bfa', 'E': '#ef4444', 'D': '#f97316'
       };
-
-      ctx.fillStyle = palette[ch] || "#1e293b";
-      ctx.fillRect(px, py, TILE, TILE);
-      ctx.strokeStyle = "rgba(15,23,42,0.35)";
-      ctx.strokeRect(px, py, TILE, TILE);
-
-      if ("KBMEC D".replace(/\s/g,"").includes(ch)) {
+      ctx.fillStyle = palette[ch] || '#1e293b';
+      ctx.fillRect(x, y, TILE, TILE);
+      ctx.strokeStyle = 'rgba(15,23,42,0.35)';
+      ctx.strokeRect(x, y, TILE, TILE);
+      if ('CKBMED'.includes(ch)) {
+        const pulse = 0.4 + (Math.sin(anim / 250) + 1) * 0.25;
         ctx.fillStyle = `rgba(255,255,255,${pulse})`;
         ctx.beginPath();
-        ctx.arc(px + TILE / 2, py + TILE / 2, 5 + pulse * 3, 0, Math.PI * 2);
+        ctx.arc(x + TILE / 2, y + TILE / 2, 4 + pulse * 3, 0, Math.PI * 2);
         ctx.fill();
       }
     }
 
-    function draw() {
-      const w = world.width * TILE;
-      const h = world.height * TILE;
-      canvas.width = w;
-      canvas.height = h;
-      canvas.style.width = "100%";
-      canvas.style.height = "100%";
-      ctx.setTransform(1,0,0,1,0,0);
+    function drawWorld() {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const w = canvas.clientWidth || canvas.parentElement.clientWidth;
+      const h = canvas.clientHeight || canvas.parentElement.clientHeight;
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      for (let y = 0; y < world.height; y++) {
-        for (let x = 0; x < world.width; x++) drawTile(x, y, world.tiles[y][x]);
-      }
+      const startX = Math.max(0, Math.min(MAP_W - VIEW_W, hero.x - Math.floor(VIEW_W / 2)));
+      const startY = Math.max(0, Math.min(MAP_H - VIEW_H, hero.y - Math.floor(VIEW_H / 2)));
 
-      // enemy markers
-      for (let i = 0; i < 24; i++) {
-        const ex = (i * 7 + 3) % world.width;
-        const ey = (i * 11 + 4) % world.height;
-        const t = tileAt(ex, ey);
-        if (t === "#") continue;
-        ctx.fillStyle = `rgba(248,113,113,${0.28 + (Math.sin((anim + i * 60) / 260) + 1) * 0.2})`;
-        ctx.beginPath();
-        ctx.arc(ex * TILE + TILE / 2, ey * TILE + TILE / 2, 3, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // hero sprite
-      const hx = hero.x * TILE + TILE / 2;
-      const hy = hero.y * TILE + TILE / 2;
+      ctx.clearRect(0, 0, w, h);
       ctx.save();
-      ctx.translate(hx, hy);
-      ctx.fillStyle = "#e2e8f0";
-      ctx.beginPath();
-      ctx.arc(0, -6, 7, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#38bdf8";
-      ctx.fillRect(-7, 1, 14, 15);
-      ctx.fillStyle = "#f59e0b";
-      ctx.fillRect(8, 2, 4, 12);
-      ctx.restore();
-    }
+      const ox = Math.floor((w - VIEW_W * TILE) / 2);
+      const oy = Math.floor((h - VIEW_H * TILE) / 2);
+      ctx.translate(ox, oy);
 
-    function loop(ts) {
-      const dt = ts - lastTick;
-      lastTick = ts;
-      anim += dt;
-
-      if (!battle) {
-        const speed = 120;
-        if (input.ArrowUp || input.w) moveHero(0, -1);
-        else if (input.ArrowDown || input.s) moveHero(0, 1);
-        else if (input.ArrowLeft || input.a) moveHero(-1, 0);
-        else if (input.ArrowRight || input.d) moveHero(1, 0);
-        if (input.e) {
-          checkEvent(tileAt(hero.x, hero.y));
-          input.e = false;
+      for (let y = 0; y < VIEW_H; y++) {
+        for (let x = 0; x < VIEW_W; x++) {
+          drawTile(tile(startX + x, startY + y), x * TILE, y * TILE);
         }
       }
 
-      if (hero.flags.clearFront && hero.flags.clearTrue && bestiary.size === 6) {
-        overlay.textContent = "★ 図鑑完成 + 真エンド達成 ★";
-      }
+      const hx = (hero.x - startX) * TILE + TILE / 2;
+      const hy = (hero.y - startY) * TILE + TILE / 2;
+      ctx.save();
+      ctx.translate(hx, hy);
+      ctx.fillStyle = '#e2e8f0';
+      ctx.beginPath(); ctx.arc(0, -5, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#38bdf8'; ctx.fillRect(-7, 2, 14, 14);
+      ctx.fillStyle = '#f59e0b'; ctx.fillRect(8, 3, 4, 11);
+      ctx.restore();
 
-      draw();
-      requestAnimationFrame(loop);
+      ctx.restore();
     }
 
-    document.getElementById("attackBtn").onclick = () => playerCommand("attack");
-    document.getElementById("magicBtn").onclick = () => playerCommand("magic");
-    document.getElementById("guardBtn").onclick = () => playerCommand("guard");
-    document.getElementById("itemBtn").onclick = () => playerCommand("item");
+    function bar(v, max, cls) {
+      const p = Math.max(0, Math.min(100, (v / max) * 100));
+      return `<div class='bar'><div class='${cls}' style='width:${p}%'></div></div>`;
+    }
 
-    window.addEventListener("keydown", e => {
-      input[e.key] = true;
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) e.preventDefault();
+    function refreshUI() {
+      heroPanel.innerHTML = `
+        <div class='entry'><b>Lv.${hero.lvl} 探索者アルト</b><br>HP ${Math.ceil(hero.hp)} / ${hero.maxHp}${bar(hero.hp, hero.maxHp, 'hp')}MP ${Math.ceil(hero.mp)} / ${hero.maxMp}${bar(hero.mp, hero.maxMp, 'mp')}XP ${hero.xp} / ${hero.nextXp}${bar(hero.xp, hero.nextXp, 'xp')}</div>
+        <div class='entry'>攻撃 ${hero.atk} / 防御 ${hero.def} / 回復薬 ${hero.potions}</div>
+      `;
+      questPanel.innerHTML = `
+        <div class='entry'>表クリア: 冥王アバドン撃破 ${hero.flags.clearFront ? '✅' : '⬜'}</div>
+        <div class='entry'>裏クリア: 深淵竜ネブラ撃破 ${hero.flags.clearTrue ? '✅' : '⬜'}</div>
+        <div class='entry'>古城の鍵 ${hero.flags.castleKey ? '✅' : '⬜'} / 橋建設 ${hero.flags.bridge ? '✅' : '⬜'} / 魔導塔奥義 ${hero.flags.tower ? '✅' : '⬜'}</div>
+        <div class='entry'>図鑑 ${bestiary.size} / 6</div>
+        <div class='entry'>想定ボリューム: 探索 + 育成 + 図鑑埋めで約3時間。</div>
+      `;
+      const ids = ['slime', 'wolf', 'golem', 'wyvern', 'demonlord', 'abyssdragon'];
+      bookEl.innerHTML = ids.map(id => {
+        const e = bestiary.get(id);
+        if (!e) return `<div class='entry'>${id}: ???</div>`;
+        return `<div class='entry'><b>${e.name}</b><br>HP:${e.hp} ATK:${e.atk} DEF:${e.def}</div>`;
+      }).join('');
+      stateEl.textContent = `探索中: 位置(${hero.x}, ${hero.y}) / マップ ${MAP_W}x${MAP_H}`;
+      updateBattleHero();
+    }
+
+    function updateBattleHero() {
+      battleHero.innerHTML = `<div class='entry'>HP ${Math.ceil(hero.hp)} / ${hero.maxHp}${bar(hero.hp, hero.maxHp, 'hp')}MP ${Math.ceil(hero.mp)} / ${hero.maxMp}${bar(hero.mp, hero.maxMp, 'mp')}回復薬 ${hero.potions}</div>`;
+    }
+
+    function tick(ts) {
+      anim = ts;
+      if (!battle) {
+        if (key.ArrowUp || key.w) move(0, -1);
+        else if (key.ArrowDown || key.s) move(0, 1);
+        else if (key.ArrowLeft || key.a) move(-1, 0);
+        else if (key.ArrowRight || key.d) move(1, 0);
+        if (key.e) { checkEvent(tile(hero.x, hero.y)); key.e = false; }
+      }
+
+      if (hero.flags.clearFront && hero.flags.clearTrue && bestiary.size === 6) {
+        overlay.textContent = '★ 図鑑完成 + 真エンド達成 ★';
+      }
+      drawWorld();
+      requestAnimationFrame(tick);
+    }
+
+    document.getElementById('attackBtn').onclick = () => playerAct('attack');
+    document.getElementById('magicBtn').onclick = () => playerAct('magic');
+    document.getElementById('guardBtn').onclick = () => playerAct('guard');
+    document.getElementById('itemBtn').onclick = () => playerAct('item');
+    document.getElementById('bAttack').onclick = () => playerAct('attack');
+    document.getElementById('bMagic').onclick = () => playerAct('magic');
+    document.getElementById('bGuard').onclick = () => playerAct('guard');
+    document.getElementById('bItem').onclick = () => playerAct('item');
+
+    addEventListener('keydown', e => {
+      key[e.key] = true;
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
     });
-    window.addEventListener("keyup", e => { input[e.key] = false; });
+    addEventListener('keyup', e => key[e.key] = false);
 
-    log("Eternal Atlas RPG 起動。王都を目指し、鍵・橋・奥義を集めて世界を救え。");
+    buildMap();
+    log('Expanded Edition 起動。広域マップを探索し、鍵・橋・奥義を揃え、冥王と深淵竜を倒せ。');
     refreshUI();
-    requestAnimationFrame(loop);
+    requestAnimationFrame(tick);
   </script>
 </body>
 </html>
