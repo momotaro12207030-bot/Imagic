@@ -3,256 +3,415 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Morph Playground</title>
+  <title>YABAME - 3D Racing</title>
   <style>
-    :root {
-      color-scheme: dark;
-    }
-
+    :root { color-scheme: dark; }
     * { box-sizing: border-box; }
-
     html, body {
       margin: 0;
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #020617;
+      font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      background: radial-gradient(circle at 50% 20%, #172554 0%, #020617 55%, #01030b 100%);
     }
-
-    body {
-      background:
-        radial-gradient(circle at 20% 15%, rgba(64, 126, 255, 0.18), transparent 42%),
-        radial-gradient(circle at 78% 22%, rgba(35, 180, 255, 0.16), transparent 35%),
-        radial-gradient(circle at 48% 90%, rgba(98, 0, 255, 0.2), transparent 48%),
-        #020617;
-    }
-
-    canvas {
-      display: block;
+    #game {
       width: 100%;
       height: 100%;
-      filter: saturate(122%) contrast(108%);
+      display: block;
+      image-rendering: auto;
     }
-
-    .vignette {
+    .hud {
       position: fixed;
       inset: 0;
       pointer-events: none;
-      background: radial-gradient(circle, transparent 48%, rgba(2, 6, 23, 0.52) 100%);
-      mix-blend-mode: multiply;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 14px;
+      color: #e2e8f0;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
     }
-
-    .grain {
-      position: fixed;
-      inset: -100%;
-      pointer-events: none;
-      background-image: radial-gradient(rgba(255,255,255,0.07) 0.7px, transparent 0.8px);
-      background-size: 3px 3px;
-      opacity: 0.08;
-      animation: grainShift 8s steps(6) infinite;
+    .row { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .pill {
+      background: rgba(15, 23, 42, 0.56);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      padding: 8px 12px;
+      border-radius: 999px;
+      backdrop-filter: blur(2px);
+      font-weight: 700;
+      letter-spacing: 0.05em;
     }
-
-    @keyframes grainShift {
-      0% { transform: translate(0, 0); }
-      25% { transform: translate(3%, -2%); }
-      50% { transform: translate(-2%, 2%); }
-      75% { transform: translate(-3%, -1%); }
-      100% { transform: translate(0, 0); }
+    .title {
+      text-align: center;
+      font-size: clamp(24px, 4vw, 56px);
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      color: #7dd3fc;
+      margin-top: 4vh;
+    }
+    .hint {
+      text-align: center;
+      margin-bottom: 2vh;
+      font-size: clamp(12px, 1.8vw, 16px);
+      opacity: 0.85;
+    }
+    .bar {
+      width: min(360px, 72vw);
+      height: 14px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      background: rgba(15, 23, 42, 0.7);
+    }
+    .bar-fill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #38bdf8, #22d3ee, #34d399);
+      transform-origin: left center;
     }
   </style>
 </head>
 <body>
-  <canvas id="canvas" aria-label="morphing-visual"></canvas>
-  <div class="vignette"></div>
-  <div class="grain"></div>
+  <canvas id="game"></canvas>
+  <div class="hud">
+    <div class="row">
+      <div class="pill" id="speed">SPEED 0 km/h</div>
+      <div class="pill" id="score">SCORE 0</div>
+      <div class="pill" id="best">BEST 0</div>
+    </div>
+
+    <div class="title">YABAME</div>
+
+    <div class="row" style="align-items: flex-end;">
+      <div>
+        <div class="pill" style="margin-bottom:8px;">BOOST</div>
+        <div class="bar"><div class="bar-fill" id="boostBar"></div></div>
+      </div>
+      <div class="hint" id="hint">←→ / A,D: ハンドル &nbsp; ↑ / W: 加速 &nbsp; ↓ / S: 減速 &nbsp; Shift: ブースト</div>
+    </div>
+  </div>
 
   <script>
-    const STORAGE_KEY = "morph-playground-v1";
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const speedEl = document.getElementById('speed');
+    const scoreEl = document.getElementById('score');
+    const bestEl = document.getElementById('best');
+    const boostBar = document.getElementById('boostBar');
+    const hintEl = document.getElementById('hint');
+
+    const keys = Object.create(null);
+    const world = {
+      roadX: 0,
+      curve: 0,
+      segmentLength: 90,
+      laneWidth: 220,
+      baseRoadWidth: 2600,
+      maxSpeed: 280,
+      accel: 118,
+      brake: 162,
+      friction: 42,
+      speed: 0,
+      distance: 0,
+      score: 0,
+      boost: 1,
+      playerOffset: 0,
+      wobble: 0,
+      dead: false,
+      restartTimer: 0,
+      best: Number(localStorage.getItem('yabame-best') || 0),
+      obstacles: [],
+      stars: []
+    };
 
     let width = 0;
     let height = 0;
-    let dpr = 1;
+    let roadHorizon = 0;
+    let lastTime = performance.now();
 
-    const palettes = [
-      ["#67e8f9", "#60a5fa", "#a78bfa", "#f472b6"],
-      ["#22d3ee", "#0ea5e9", "#6366f1", "#14b8a6"],
-      ["#f59e0b", "#ef4444", "#fb7185", "#f97316"],
-      ["#4ade80", "#22d3ee", "#34d399", "#a3e635"]
-    ];
-
-    const state = {
-      paletteIndex: 0,
-      speed: 1,
-      lastPaletteShift: Date.now()
-    };
-
-    function loadState() {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      try {
-        Object.assign(state, JSON.parse(raw));
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-
-    function saveState() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
+    const rand = (min, max) => Math.random() * (max - min) + min;
 
     function resize() {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       width = window.innerWidth;
       height = window.innerHeight;
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
+      canvas.style.width = width + 'px';
+      canvas.style.height = height + 'px';
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      roadHorizon = height * 0.34;
+      createStars();
     }
 
-    class Blob {
-      constructor(index) {
-        this.index = index;
-        this.reset(true);
+    function createStars() {
+      world.stars = Array.from({ length: 180 }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * roadHorizon,
+        z: rand(0.3, 1),
+      }));
+    }
+
+    function spawnObstacle(z = world.distance + rand(800, 2600)) {
+      const lane = Math.round(rand(-1.4, 1.4));
+      world.obstacles.push({ z, lane, w: rand(120, 150), h: rand(80, 110) });
+    }
+
+    function initTrack() {
+      world.obstacles = [];
+      for (let i = 0; i < 24; i++) spawnObstacle(world.distance + 700 + i * rand(500, 1100));
+    }
+
+    function resetRun() {
+      world.speed = 0;
+      world.playerOffset = 0;
+      world.distance = 0;
+      world.score = 0;
+      world.curve = 0;
+      world.dead = false;
+      world.restartTimer = 0;
+      world.boost = 1;
+      hintEl.textContent = '←→ / A,D: ハンドル   ↑ / W: 加速   ↓ / S: 減速   Shift: ブースト';
+      initTrack();
+    }
+
+    function update(dt) {
+      if (world.dead) {
+        world.restartTimer -= dt;
+        if (world.restartTimer <= 0 && (keys.Enter || keys[' '])) {
+          resetRun();
+        }
+        return;
       }
 
-      reset(initial = false) {
-        this.x = Math.random() * width;
-        this.y = Math.random() * height;
-        this.baseR = Math.random() * 140 + 70;
-        this.r = this.baseR;
-        this.vx = (Math.random() - 0.5) * 0.42;
-        this.vy = (Math.random() - 0.5) * 0.42;
-        this.seed = Math.random() * Math.PI * 2;
-        this.turn = (Math.random() - 0.5) * 0.0022;
-        this.colorPick = Math.random();
-        if (!initial) {
-          this.vx *= 1.6;
-          this.vy *= 1.6;
+      const accelerating = keys.ArrowUp || keys.w;
+      const braking = keys.ArrowDown || keys.s;
+      const left = keys.ArrowLeft || keys.a;
+      const right = keys.ArrowRight || keys.d;
+      const boosting = (keys.Shift || keys.ShiftLeft || keys.ShiftRight) && world.boost > 0.02 && world.speed > 120;
+
+      if (accelerating) world.speed += world.accel * dt;
+      if (braking) world.speed -= world.brake * dt;
+      world.speed -= world.friction * dt;
+      world.speed = Math.max(0, Math.min(world.maxSpeed, world.speed));
+
+      if (boosting) {
+        world.speed = Math.min(world.maxSpeed * 1.25, world.speed + 180 * dt);
+        world.boost = Math.max(0, world.boost - dt * 0.33);
+      } else {
+        world.boost = Math.min(1, world.boost + dt * 0.12);
+      }
+
+      const steerPower = (world.speed / world.maxSpeed) * 2.2;
+      if (left) world.playerOffset -= dt * steerPower;
+      if (right) world.playerOffset += dt * steerPower;
+
+      world.curve += Math.sin(world.distance * 0.0007) * 0.00065;
+      world.playerOffset -= world.curve * dt * 4.2;
+      world.playerOffset = Math.max(-1.65, Math.min(1.65, world.playerOffset));
+
+      world.distance += world.speed * dt * world.segmentLength;
+      world.score += world.speed * dt * (boosting ? 2.2 : 1.2);
+      world.wobble += dt * (2.8 + world.speed * 0.013);
+
+      if (world.playerOffset <= -1.62 || world.playerOffset >= 1.62) crash('コースアウト！ Enter / Space でリトライ');
+
+      for (const obs of world.obstacles) {
+        if (obs.z < world.distance - 120) {
+          obs.z = world.distance + rand(1800, 4200);
+          obs.lane = Math.round(rand(-1.4, 1.4));
+          continue;
+        }
+        const dz = obs.z - world.distance;
+        if (dz > 30 && dz < 140) {
+          const laneDiff = Math.abs(world.playerOffset - obs.lane * 0.62);
+          if (laneDiff < 0.28) {
+            crash('クラッシュ！ Enter / Space でリトライ');
+            break;
+          }
         }
       }
 
-      step(time, speed) {
-        this.seed += 0.008 * speed;
-        this.r = this.baseR * (0.75 + 0.3 * Math.sin(time * 0.0007 + this.seed));
-        this.vx += Math.cos(this.seed * 1.8) * this.turn;
-        this.vy += Math.sin(this.seed * 1.6) * this.turn;
+      if (world.score > world.best) {
+        world.best = Math.floor(world.score);
+        localStorage.setItem('yabame-best', String(world.best));
+      }
+    }
 
-        const swirlX = width * 0.5 + Math.cos(time * 0.00014 + this.index) * width * 0.22;
-        const swirlY = height * 0.5 + Math.sin(time * 0.00017 + this.index * 0.77) * height * 0.2;
-        this.vx += (swirlX - this.x) * 0.000008 * speed;
-        this.vy += (swirlY - this.y) * 0.000008 * speed;
+    function crash(message) {
+      world.dead = true;
+      world.speed *= 0.15;
+      world.restartTimer = 0.4;
+      hintEl.textContent = message;
+    }
 
-        this.x += this.vx * speed;
-        this.y += this.vy * speed;
+    function drawSky() {
+      const grad = ctx.createLinearGradient(0, 0, 0, roadHorizon);
+      grad.addColorStop(0, '#1d4ed8');
+      grad.addColorStop(0.6, '#0f172a');
+      grad.addColorStop(1, '#030712');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, roadHorizon);
 
-        if (this.x < -this.r) this.x = width + this.r;
-        if (this.x > width + this.r) this.x = -this.r;
-        if (this.y < -this.r) this.y = height + this.r;
-        if (this.y > height + this.r) this.y = -this.r;
+      for (const star of world.stars) {
+        const tw = 0.4 + Math.sin(world.wobble * star.z * 2 + star.x * 0.01) * 0.35;
+        ctx.fillStyle = `rgba(226,232,240,${Math.max(0.1, tw)})`;
+        ctx.fillRect(star.x, star.y, 1.5 * star.z, 1.5 * star.z);
       }
 
-      draw(colors, time) {
-        const idx = Math.floor(this.colorPick * colors.length) % colors.length;
-        const next = (idx + 1) % colors.length;
-        const pulse = (Math.sin(time * 0.0013 + this.seed) + 1) * 0.5;
-
-        const grad = ctx.createRadialGradient(
-          this.x - this.r * 0.25,
-          this.y - this.r * 0.2,
-          this.r * 0.1,
-          this.x,
-          this.y,
-          this.r
-        );
-
-        grad.addColorStop(0, hexToRgba(colors[idx], 0.62 + pulse * 0.18));
-        grad.addColorStop(0.5, hexToRgba(colors[next], 0.32 + pulse * 0.14));
-        grad.addColorStop(1, hexToRgba(colors[idx], 0));
-
-        ctx.fillStyle = grad;
+      for (let i = 0; i < 3; i++) {
+        const mx = ((i * 0.37 + world.distance * 0.00001) % 1) * width;
+        const my = roadHorizon - 70 - i * 28;
+        ctx.fillStyle = 'rgba(56,189,248,0.08)';
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        ctx.ellipse(mx, my, 140 + i * 35, 24 + i * 5, 0, 0, Math.PI * 2);
         ctx.fill();
       }
     }
 
-    function hexToRgba(hex, alpha) {
-      const clean = hex.replace("#", "");
-      const bigint = parseInt(clean, 16);
-      const r = (bigint >> 16) & 255;
-      const g = (bigint >> 8) & 255;
-      const b = bigint & 255;
-      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    function project(z) {
+      const depth = z / world.segmentLength;
+      const perspective = 1 / depth;
+      const y = roadHorizon + (1 - perspective) * (height - roadHorizon);
+      const roadWidth = world.baseRoadWidth * perspective;
+      return { perspective, y, roadWidth };
     }
 
-    const blobCount = 14;
-    const blobs = Array.from({ length: blobCount }, (_, i) => new Blob(i));
+    function drawRoad() {
+      ctx.fillStyle = '#0b1022';
+      ctx.fillRect(0, roadHorizon, width, height - roadHorizon);
 
-    function shiftPalette() {
-      state.paletteIndex = (state.paletteIndex + 1) % palettes.length;
-      state.lastPaletteShift = Date.now();
-      saveState();
-    }
+      const visibleSegments = 220;
+      for (let i = visibleSegments; i > 2; i--) {
+        const z1 = i * world.segmentLength;
+        const z2 = (i - 1) * world.segmentLength;
+        const p1 = project(z1);
+        const p2 = project(z2);
 
-    function animate(now) {
-      const colors = palettes[state.paletteIndex];
+        const bend1 = (Math.sin((world.distance + z1) * 0.00055) + world.curve * 48) * p1.perspective * 390;
+        const bend2 = (Math.sin((world.distance + z2) * 0.00055) + world.curve * 48) * p2.perspective * 390;
 
-      ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = "rgba(2, 6, 23, 0.13)";
-      ctx.fillRect(0, 0, width, height);
+        const center1 = width * 0.5 + bend1 - world.playerOffset * p1.perspective * 420;
+        const center2 = width * 0.5 + bend2 - world.playerOffset * p2.perspective * 420;
 
-      ctx.globalCompositeOperation = "lighter";
-      for (const blob of blobs) {
-        blob.step(now, state.speed);
-        blob.draw(colors, now);
+        const rumble = i % 2 === 0 ? '#dc2626' : '#f8fafc';
+        const asphalt = i % 2 === 0 ? '#111827' : '#0f172a';
+
+        drawQuad(center1, p1.y, p1.roadWidth * 0.57, center2, p2.y, p2.roadWidth * 0.57, '#14532d');
+        drawQuad(center1, p1.y, p1.roadWidth * 0.5, center2, p2.y, p2.roadWidth * 0.5, rumble);
+        drawQuad(center1, p1.y, p1.roadWidth * 0.44, center2, p2.y, p2.roadWidth * 0.44, asphalt);
+
+        if (i % 10 < 5) {
+          drawQuad(center1, p1.y, p1.roadWidth * 0.03, center2, p2.y, p2.roadWidth * 0.03, '#f8fafc');
+        }
       }
 
-      ctx.globalCompositeOperation = "screen";
-      for (let i = 0; i < 16; i++) {
-        const t = now * 0.0002 + i * 0.45;
-        const x = width * (0.5 + Math.cos(t * 1.2 + i) * (0.06 + i * 0.004));
-        const y = height * (0.5 + Math.sin(t * 1.1 - i) * (0.05 + i * 0.003));
-        const r = 3 + Math.sin(t * 3 + i) * 2;
-        ctx.fillStyle = `rgba(180, 220, 255, ${0.05 + (i % 4) * 0.01})`;
+      for (const obs of world.obstacles) {
+        const dz = obs.z - world.distance;
+        if (dz < 20 || dz > visibleSegments * world.segmentLength) continue;
+        const p = project(dz);
+        const bend = (Math.sin((world.distance + dz) * 0.00055) + world.curve * 48) * p.perspective * 390;
+        const center = width * 0.5 + bend - world.playerOffset * p.perspective * 420;
+        const x = center + obs.lane * p.roadWidth * 0.19;
+        const w = obs.w * p.perspective;
+        const h = obs.h * p.perspective;
+
+        ctx.fillStyle = '#f97316';
+        ctx.fillRect(x - w * 0.5, p.y - h, w, h);
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(x - w * 0.35, p.y - h * 0.7, w * 0.7, h * 0.25);
+      }
+    }
+
+    function drawQuad(cx1, y1, hw1, cx2, y2, hw2, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(cx1 - hw1, y1);
+      ctx.lineTo(cx1 + hw1, y1);
+      ctx.lineTo(cx2 + hw2, y2);
+      ctx.lineTo(cx2 - hw2, y2);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawCar() {
+      const x = width * 0.5 + world.playerOffset * width * 0.18;
+      const y = height * 0.84 + Math.sin(world.wobble * 12) * 2;
+      const boostGlow = world.speed > world.maxSpeed ? 1 : 0;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = 'rgba(34, 211, 238, 0.25)';
+      ctx.beginPath();
+      ctx.ellipse(0, 18, 58 + boostGlow * 18, 20 + boostGlow * 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(-34, -18, 68, 40);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(-28, -13, 56, 24);
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillRect(-20, -8, 40, 12);
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(-34, 4, 68, 10);
+
+      if (world.speed > 80) {
+        const flameLen = 8 + (world.speed / world.maxSpeed) * 22;
+        ctx.fillStyle = 'rgba(56,189,248,0.9)';
         ctx.beginPath();
-        ctx.arc(x, y, Math.max(1, r), 0, Math.PI * 2);
+        ctx.moveTo(-16, 22);
+        ctx.lineTo(-6, 22 + flameLen);
+        ctx.lineTo(0, 22);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(16, 22);
+        ctx.lineTo(6, 22 + flameLen);
+        ctx.lineTo(0, 22);
+        ctx.closePath();
         ctx.fill();
       }
-
-      if (now - state.lastPaletteShift > 12000) {
-        shiftPalette();
-      }
-
-      requestAnimationFrame(animate);
+      ctx.restore();
     }
 
-    window.addEventListener("resize", resize);
+    function render() {
+      drawSky();
+      drawRoad();
+      drawCar();
 
-    window.addEventListener("click", () => {
-      shiftPalette();
-      for (const blob of blobs) {
-        blob.reset();
-      }
+      speedEl.textContent = `SPEED ${Math.floor(world.speed)} km/h`;
+      scoreEl.textContent = `SCORE ${Math.floor(world.score)}`;
+      bestEl.textContent = `BEST ${world.best}`;
+      boostBar.style.transform = `scaleX(${world.boost})`;
+    }
+
+    function tick(now) {
+      const dt = Math.min(0.035, (now - lastTime) / 1000);
+      lastTime = now;
+      update(dt);
+      render();
+      requestAnimationFrame(tick);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      keys[e.key] = true;
+      if (e.key.startsWith('Arrow') || e.key === ' ') e.preventDefault();
     });
 
-    window.addEventListener("keydown", (event) => {
-      if (event.code === "Space") {
-        event.preventDefault();
-        state.speed = state.speed === 1 ? 0.35 : 1;
-        saveState();
-      }
+    window.addEventListener('keyup', (e) => {
+      keys[e.key] = false;
     });
 
-    window.addEventListener("beforeunload", saveState);
+    window.addEventListener('resize', resize);
 
-    loadState();
     resize();
-    saveState();
-    requestAnimationFrame(animate);
+    resetRun();
+    requestAnimationFrame((t) => {
+      lastTime = t;
+      tick(t);
+    });
   </script>
 </body>
 </html>
