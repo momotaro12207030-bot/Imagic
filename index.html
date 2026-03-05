@@ -1,379 +1,459 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gravity Particle Simulator</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #000;
-    overflow: hidden;
-    font-family: 'Segoe UI', sans-serif;
-    color: #fff;
-    user-select: none;
-  }
-  canvas { display: block; }
-  #ui {
-    position: fixed;
-    top: 16px;
-    left: 16px;
-    z-index: 10;
-    background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    padding: 16px;
-    min-width: 220px;
-    transition: opacity 0.3s;
-  }
-  #ui h1 {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 12px;
-    background: linear-gradient(90deg, #ff6fd8, #3813c2);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .control { margin-bottom: 10px; }
-  .control label {
-    display: block;
-    font-size: 11px;
-    color: #aaa;
-    margin-bottom: 4px;
-  }
-  .control input[type="range"] {
-    width: 100%;
-    accent-color: #ff6fd8;
-  }
-  .control select, .control button {
-    width: 100%;
-    padding: 6px 8px;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 6px;
-    color: #fff;
-    font-size: 12px;
-    cursor: pointer;
-  }
-  .control button:hover { background: rgba(255,255,255,0.15); }
-  #stats {
-    position: fixed;
-    bottom: 16px;
-    left: 16px;
-    font-size: 11px;
-    color: #555;
-    z-index: 10;
-  }
-  #help {
-    position: fixed;
-    bottom: 16px;
-    right: 16px;
-    font-size: 11px;
-    color: #666;
-    text-align: right;
-    z-index: 10;
-    line-height: 1.6;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>シフトボール・パズル</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d1020;
+      --panel: rgba(14, 21, 41, 0.86);
+      --grid: #1f2848;
+      --wall: #6f83f7;
+      --fragile: #f7a34a;
+      --switch: #47d4ff;
+      --gate: #d95cff;
+      --goal: #5dff9f;
+      --text: #e8ecff;
+      --sub: #a9b3d8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at 20% 10%, #1a2150 0%, var(--bg) 55%);
+      color: var(--text);
+      font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+    }
+
+    .game-shell {
+      width: min(920px, 100%);
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 18px;
+    }
+
+    .board-wrap,
+    .panel {
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 14px;
+      background: var(--panel);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+    }
+
+    .board-wrap {
+      padding: 14px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 10px;
+      background: #0b1026;
+    }
+
+    .panel {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    h1 {
+      font-size: 1.08rem;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+
+    .desc {
+      font-size: 0.87rem;
+      color: var(--sub);
+      line-height: 1.45;
+      margin-bottom: 2px;
+    }
+
+    .info,
+    .legend {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .info p {
+      font-size: 0.83rem;
+      color: var(--sub);
+      margin-top: 3px;
+      line-height: 1.45;
+    }
+
+    #status {
+      color: #cde0ff;
+      font-weight: 600;
+    }
+
+    #message {
+      min-height: 3.2em;
+      color: #ffde8e;
+    }
+
+    .legend h2 {
+      font-size: 0.84rem;
+      margin-bottom: 7px;
+    }
+
+    .legend ul {
+      list-style: none;
+      display: grid;
+      gap: 5px;
+      font-size: 0.78rem;
+      color: var(--sub);
+    }
+
+    .legend li::before {
+      content: "■";
+      margin-right: 6px;
+    }
+
+    .wall::before { color: var(--wall); }
+    .fragile::before { color: var(--fragile); }
+    .switch::before { color: var(--switch); }
+    .gate::before { color: var(--gate); }
+    .goal::before { color: var(--goal); }
+
+    .controls {
+      font-size: 0.8rem;
+      color: var(--sub);
+      line-height: 1.5;
+    }
+
+    button {
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: linear-gradient(120deg, #2c3668, #1f2a57);
+      color: #eff3ff;
+      border-radius: 9px;
+      padding: 8px 10px;
+      font-size: 0.86rem;
+      cursor: pointer;
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.15);
+    }
+
+    @media (max-width: 860px) {
+      .game-shell {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
-<canvas id="canvas"></canvas>
+  <div class="game-shell">
+    <div class="board-wrap">
+      <canvas id="board" width="640" height="640"></canvas>
+    </div>
+    <aside class="panel">
+      <div>
+        <h1>ユニークなボールでゴールを目指せ！</h1>
+        <p class="desc">「シフトボール」は通常モードとゴーストモードを切り替えられます。壁やギミックを読み解いて、最短手でゴールへ。</p>
+      </div>
 
-<div id="ui">
-  <h1>Gravity Particles</h1>
-  <div class="control">
-    <label>パーティクル数: <span id="countLabel">500</span></label>
-    <input type="range" id="countSlider" min="100" max="3000" value="500" step="50">
+      <div class="info">
+        <div id="status">ステージ 1 / 3</div>
+        <p>移動回数: <span id="moves">0</span></p>
+        <p id="message">壁に注意しながらスイッチを踏もう。</p>
+      </div>
+
+      <button id="retryBtn" type="button">このステージをやり直す</button>
+      <button id="nextBtn" type="button">次のステージへ</button>
+
+      <div class="legend">
+        <h2>ギミック</h2>
+        <ul>
+          <li class="wall">通常壁: どのモードでも通れない</li>
+          <li class="fragile">ひび壁: 通常モードで1回だけ破壊</li>
+          <li class="switch">スイッチ: 踏むとゲートが開く</li>
+          <li class="gate">ゲート: スイッチONで通行可能</li>
+          <li class="goal">ゴール: 到達でクリア</li>
+        </ul>
+      </div>
+
+      <div class="controls">
+        操作: 矢印 / WASD で移動<br />
+        スペース: モード切替（通常 ⇄ ゴースト）
+      </div>
+    </aside>
   </div>
-  <div class="control">
-    <label>重力の強さ: <span id="gravLabel">1.0</span></label>
-    <input type="range" id="gravSlider" min="0.1" max="5" value="1" step="0.1">
-  </div>
-  <div class="control">
-    <label>トレイル長: <span id="trailLabel">0.92</span></label>
-    <input type="range" id="trailSlider" min="0" max="0.98" value="0.92" step="0.01">
-  </div>
-  <div class="control">
-    <label>カラーモード</label>
-    <select id="colorMode">
-      <option value="velocity">速度</option>
-      <option value="rainbow">レインボー</option>
-      <option value="distance">距離</option>
-      <option value="fire">ファイア</option>
-      <option value="ocean">オーシャン</option>
-    </select>
-  </div>
-  <div class="control">
-    <button id="resetBtn">リセット</button>
-  </div>
-  <div class="control">
-    <button id="explosionBtn">💥 爆発</button>
-  </div>
-  <div class="control">
-    <button id="vortexBtn">🌀 渦</button>
-  </div>
-</div>
 
-<div id="stats"></div>
-<div id="help">
-  クリック: 引力 ｜ 右クリック: 斥力<br>
-  スクロール: 重力調整 ｜ スペース: 一時停止
-</div>
+  <script>
+    const TILE = 40;
+    const SIZE = 16;
+    const canvas = document.getElementById("board");
+    const ctx = canvas.getContext("2d");
 
-<script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById("status");
+    const movesEl = document.getElementById("moves");
+    const messageEl = document.getElementById("message");
+    const retryBtn = document.getElementById("retryBtn");
+    const nextBtn = document.getElementById("nextBtn");
 
-let W, H;
-function resize() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-}
-resize();
-window.addEventListener('resize', resize);
+    const stages = [
+      {
+        start: { x: 1, y: 1 },
+        goal: { x: 14, y: 13 },
+        walls: [
+          [0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[8,0],[9,0],[10,0],[11,0],[12,0],[13,0],[14,0],[15,0],
+          [0,1],[0,2],[0,3],[0,4],[0,5],[0,6],[0,7],[0,8],[0,9],[0,10],[0,11],[0,12],[0,13],[0,14],[0,15],
+          [15,1],[15,2],[15,3],[15,4],[15,5],[15,6],[15,7],[15,8],[15,9],[15,10],[15,11],[15,12],[15,13],[15,14],[15,15],
+          [1,15],[2,15],[3,15],[4,15],[5,15],[6,15],[7,15],[8,15],[9,15],[10,15],[11,15],[12,15],[13,15],[14,15],
+          [3,2],[3,3],[3,4],[3,5],[3,6],[3,7],[3,8],[6,4],[7,4],[8,4],[9,4],[10,4],
+          [6,8],[7,8],[8,8],[9,8],[10,8],[11,8],[12,8],[12,9],[12,10],[12,11]
+        ],
+        fragile: [[5,8],[5,9],[6,9]],
+        switch: { x: 11, y: 3 },
+        gates: [[12,5],[12,6],[12,7]],
+        hint: "ゴーストでひび壁をすり抜け、必要な所だけ壊そう。"
+      },
+      {
+        start: { x: 2, y: 13 },
+        goal: { x: 13, y: 2 },
+        walls: [
+          [0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[8,0],[9,0],[10,0],[11,0],[12,0],[13,0],[14,0],[15,0],
+          [0,1],[0,2],[0,3],[0,4],[0,5],[0,6],[0,7],[0,8],[0,9],[0,10],[0,11],[0,12],[0,13],[0,14],[0,15],
+          [15,1],[15,2],[15,3],[15,4],[15,5],[15,6],[15,7],[15,8],[15,9],[15,10],[15,11],[15,12],[15,13],[15,14],[15,15],
+          [1,15],[2,15],[3,15],[4,15],[5,15],[6,15],[7,15],[8,15],[9,15],[10,15],[11,15],[12,15],[13,15],[14,15],
+          [4,3],[5,3],[6,3],[7,3],[8,3],[9,3],[10,3],[11,3],[12,3],
+          [4,6],[5,6],[6,6],[7,6],[8,6],[9,6],[10,6],[11,6],
+          [3,9],[4,9],[5,9],[6,9],[9,9],[10,9],[11,9],[12,9],
+          [3,12],[4,12],[5,12],[6,12],[7,12],[8,12],[9,12],[10,12],[11,12]
+        ],
+        fragile: [[8,9],[8,10],[8,11]],
+        switch: { x: 12, y: 13 },
+        gates: [[13,4],[13,5],[13,6]],
+        hint: "中央の縦列をどう扱うかが鍵。無駄な破壊に注意。"
+      },
+      {
+        start: { x: 1, y: 14 },
+        goal: { x: 14, y: 1 },
+        walls: [
+          [0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[8,0],[9,0],[10,0],[11,0],[12,0],[13,0],[14,0],[15,0],
+          [0,1],[0,2],[0,3],[0,4],[0,5],[0,6],[0,7],[0,8],[0,9],[0,10],[0,11],[0,12],[0,13],[0,14],[0,15],
+          [15,1],[15,2],[15,3],[15,4],[15,5],[15,6],[15,7],[15,8],[15,9],[15,10],[15,11],[15,12],[15,13],[15,14],[15,15],
+          [1,15],[2,15],[3,15],[4,15],[5,15],[6,15],[7,15],[8,15],[9,15],[10,15],[11,15],[12,15],[13,15],[14,15],
+          [2,2],[3,2],[4,2],[5,2],[9,2],[10,2],[11,2],[12,2],[13,2],
+          [2,5],[3,5],[4,5],[5,5],[6,5],[7,5],[8,5],[9,5],[10,5],[11,5],[12,5],[13,5],
+          [2,8],[3,8],[4,8],[5,8],[9,8],[10,8],[11,8],[12,8],[13,8],
+          [2,11],[3,11],[4,11],[5,11],[6,11],[7,11],[8,11],[9,11],[10,11],[11,11],[12,11],[13,11]
+        ],
+        fragile: [[8,2],[8,3],[8,4],[8,8],[8,9],[8,10]],
+        switch: { x: 6, y: 13 },
+        gates: [[14,5],[14,6],[14,7],[14,8],[14,9],[14,10]],
+        hint: "終盤ステージ。ゴーストで最短ルートを作ろう。"
+      }
+    ];
 
-// State
-let particles = [];
-let attractors = [];
-let paused = false;
-let time = 0;
-let vortexMode = false;
+    let stageIndex = 0;
+    let state;
 
-// Settings
-const settings = {
-  count: 500,
-  gravity: 1.0,
-  trail: 0.92,
-  colorMode: 'velocity',
-};
-
-// UI bindings
-const countSlider = document.getElementById('countSlider');
-const gravSlider = document.getElementById('gravSlider');
-const trailSlider = document.getElementById('trailSlider');
-const colorMode = document.getElementById('colorMode');
-
-countSlider.addEventListener('input', e => {
-  settings.count = +e.target.value;
-  document.getElementById('countLabel').textContent = settings.count;
-  initParticles();
-});
-gravSlider.addEventListener('input', e => {
-  settings.gravity = +e.target.value;
-  document.getElementById('gravLabel').textContent = settings.gravity.toFixed(1);
-});
-trailSlider.addEventListener('input', e => {
-  settings.trail = +e.target.value;
-  document.getElementById('trailLabel').textContent = settings.trail.toFixed(2);
-});
-colorMode.addEventListener('change', e => {
-  settings.colorMode = e.target.value;
-});
-document.getElementById('resetBtn').addEventListener('click', initParticles);
-document.getElementById('explosionBtn').addEventListener('click', explosion);
-document.getElementById('vortexBtn').addEventListener('click', () => { vortexMode = !vortexMode; });
-
-// Particle
-function createParticle() {
-  const angle = Math.random() * Math.PI * 2;
-  const speed = Math.random() * 0.5;
-  return {
-    x: Math.random() * W,
-    y: Math.random() * H,
-    vx: Math.cos(angle) * speed,
-    vy: Math.sin(angle) * speed,
-    life: 1,
-    hue: Math.random() * 360,
-    size: 1 + Math.random() * 2,
-  };
-}
-
-function initParticles() {
-  particles = [];
-  for (let i = 0; i < settings.count; i++) {
-    particles.push(createParticle());
-  }
-}
-initParticles();
-
-// Mouse
-let mouse = { x: W / 2, y: H / 2, down: false, right: false };
-canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
-canvas.addEventListener('mousedown', e => {
-  e.preventDefault();
-  if (e.button === 2) mouse.right = true;
-  else mouse.down = true;
-});
-canvas.addEventListener('mouseup', e => {
-  if (e.button === 2) mouse.right = false;
-  else mouse.down = false;
-});
-canvas.addEventListener('contextmenu', e => e.preventDefault());
-canvas.addEventListener('wheel', e => {
-  settings.gravity = Math.max(0.1, Math.min(5, settings.gravity + e.deltaY * -0.002));
-  gravSlider.value = settings.gravity;
-  document.getElementById('gravLabel').textContent = settings.gravity.toFixed(1);
-});
-
-// Touch
-canvas.addEventListener('touchstart', e => { e.preventDefault(); mouse.down = true; mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; });
-canvas.addEventListener('touchmove', e => { e.preventDefault(); mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; });
-canvas.addEventListener('touchend', () => { mouse.down = false; });
-
-// Keyboard
-window.addEventListener('keydown', e => {
-  if (e.code === 'Space') { e.preventDefault(); paused = !paused; }
-});
-
-function explosion() {
-  const cx = W / 2, cy = H / 2;
-  for (const p of particles) {
-    const dx = p.x - cx;
-    const dy = p.y - cy;
-    const dist = Math.sqrt(dx * dx + dy * dy) + 1;
-    const force = 20 / dist * 50;
-    p.vx += (dx / dist) * force;
-    p.vy += (dy / dist) * force;
-  }
-}
-
-// Color
-function getColor(p, i) {
-  const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-  const dx = p.x - W / 2;
-  const dy = p.y - H / 2;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-
-  switch (settings.colorMode) {
-    case 'velocity': {
-      const hue = Math.min(speed * 20, 1) * 270;
-      return `hsla(${hue}, 100%, ${50 + speed * 10}%, ${0.7 + speed * 0.1})`;
-    }
-    case 'rainbow': {
-      const hue = (i / particles.length * 360 + time * 0.5) % 360;
-      return `hsla(${hue}, 85%, 60%, 0.8)`;
-    }
-    case 'distance': {
-      const hue = (dist / Math.max(W, H)) * 270;
-      return `hsla(${hue}, 90%, 55%, 0.8)`;
-    }
-    case 'fire': {
-      const t = Math.min(speed * 15, 1);
-      const r = 255;
-      const g = Math.floor(t * 180);
-      const b = Math.floor(t * t * 60);
-      return `rgba(${r},${g},${b},${0.6 + t * 0.3})`;
-    }
-    case 'ocean': {
-      const t = Math.min(speed * 15, 1);
-      const r = Math.floor(t * 100);
-      const g = Math.floor(100 + t * 155);
-      const b = 200 + Math.floor(t * 55);
-      return `rgba(${r},${g},${b},${0.6 + t * 0.3})`;
-    }
-    default:
-      return '#fff';
-  }
-}
-
-// Update
-function update() {
-  if (paused) return;
-  time++;
-
-  for (let i = 0; i < particles.length; i++) {
-    const p = particles[i];
-
-    // Mouse gravity
-    if (mouse.down || mouse.right) {
-      const dx = mouse.x - p.x;
-      const dy = mouse.y - p.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) + 10;
-      const force = settings.gravity * 300 / (dist * dist);
-      const sign = mouse.right ? -1 : 1;
-      p.vx += sign * (dx / dist) * force;
-      p.vy += sign * (dy / dist) * force;
+    function resetStage() {
+      const current = stages[stageIndex];
+      state = {
+        x: current.start.x,
+        y: current.start.y,
+        mode: "normal",
+        switchOn: false,
+        broken: new Set(),
+        moves: 0,
+        cleared: false
+      };
+      nextBtn.disabled = true;
+      updateLabels(current.hint);
+      draw();
     }
 
-    // Vortex
-    if (vortexMode) {
-      const dx = W / 2 - p.x;
-      const dy = H / 2 - p.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) + 10;
-      const force = settings.gravity * 0.5 / dist;
-      // Tangential + radial
-      p.vx += (-dy / dist) * force + (dx / dist) * force * 0.3;
-      p.vy += (dx / dist) * force + (dy / dist) * force * 0.3;
+    function key(x, y) {
+      return `${x},${y}`;
     }
 
-    // Damping
-    p.vx *= 0.998;
-    p.vy *= 0.998;
+    function hasCoord(list, x, y) {
+      return list.some(([lx, ly]) => lx === x && ly === y);
+    }
 
-    // Move
-    p.x += p.vx;
-    p.y += p.vy;
+    function cellBlocked(nx, ny) {
+      const stage = stages[stageIndex];
 
-    // Wrap around
-    if (p.x < 0) p.x += W;
-    if (p.x > W) p.x -= W;
-    if (p.y < 0) p.y += H;
-    if (p.y > H) p.y -= H;
-  }
-}
+      if (hasCoord(stage.walls, nx, ny)) return true;
 
-// Draw
-function draw() {
-  // Trail effect
-  ctx.fillStyle = `rgba(0, 0, 0, ${1 - settings.trail})`;
-  ctx.fillRect(0, 0, W, H);
+      if (hasCoord(stage.gates, nx, ny) && !state.switchOn) {
+        return true;
+      }
 
-  // Glow at mouse
-  if (mouse.down || mouse.right) {
-    const grad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 150);
-    const color = mouse.right ? 'rgba(255,50,50,' : 'rgba(100,150,255,';
-    grad.addColorStop(0, color + '0.15)');
-    grad.addColorStop(1, color + '0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(mouse.x - 150, mouse.y - 150, 300, 300);
-  }
+      if (hasCoord(stage.fragile, nx, ny)) {
+        const k = key(nx, ny);
+        if (state.broken.has(k)) return false;
+        if (state.mode === "normal") {
+          state.broken.add(k);
+          setMessage("ひび壁を破壊した！");
+          return false;
+        }
+        return true;
+      }
 
-  // Particles
-  for (let i = 0; i < particles.length; i++) {
-    const p = particles[i];
-    const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-    const size = p.size * Math.min(1 + speed * 0.3, 3);
+      return false;
+    }
 
-    ctx.fillStyle = getColor(p, i);
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
+    function move(dx, dy) {
+      if (state.cleared) return;
+      const nx = state.x + dx;
+      const ny = state.y + dy;
+      if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) return;
 
-// FPS
-let frameCount = 0;
-let lastFpsTime = performance.now();
-let fps = 0;
+      if (cellBlocked(nx, ny)) {
+        if (state.mode === "ghost") {
+          setMessage("ゴーストでも通常壁と閉じたゲートは抜けられない。");
+        }
+        return;
+      }
 
-function loop() {
-  update();
-  draw();
+      state.x = nx;
+      state.y = ny;
+      state.moves += 1;
+      checkTriggers();
+      updateLabels();
+      draw();
+    }
 
-  frameCount++;
-  const now = performance.now();
-  if (now - lastFpsTime >= 1000) {
-    fps = frameCount;
-    frameCount = 0;
-    lastFpsTime = now;
-    document.getElementById('stats').textContent =
-      `${particles.length} particles | ${fps} fps${paused ? ' | PAUSED' : ''}${vortexMode ? ' | VORTEX' : ''}`;
-  }
+    function toggleMode() {
+      if (state.cleared) return;
+      state.mode = state.mode === "normal" ? "ghost" : "normal";
+      setMessage(state.mode === "normal" ? "通常モードに切り替え。" : "ゴーストモードに切り替え。ひび壁をすり抜け可能。");
+      draw();
+    }
 
-  requestAnimationFrame(loop);
-}
-loop();
-</script>
+    function checkTriggers() {
+      const stage = stages[stageIndex];
+      if (!state.switchOn && stage.switch.x === state.x && stage.switch.y === state.y) {
+        state.switchOn = true;
+        setMessage("スイッチON！ゲートが開いた。");
+      }
+
+      if (stage.goal.x === state.x && stage.goal.y === state.y) {
+        state.cleared = true;
+        nextBtn.disabled = stageIndex === stages.length - 1;
+        setMessage(stageIndex === stages.length - 1 ? "全ステージクリア！お見事！" : "クリア！次のステージへ進めます。");
+      }
+    }
+
+    function setMessage(text) {
+      messageEl.textContent = text;
+    }
+
+    function updateLabels(defaultHint) {
+      statusEl.textContent = `ステージ ${stageIndex + 1} / ${stages.length} | モード: ${state.mode === "normal" ? "通常" : "ゴースト"}`;
+      movesEl.textContent = state.moves;
+      if (defaultHint) {
+        setMessage(defaultHint);
+      }
+    }
+
+    function drawTile(x, y, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x * TILE + 1, y * TILE + 1, TILE - 2, TILE - 2);
+    }
+
+    function draw() {
+      const stage = stages[stageIndex];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+          ctx.fillStyle = (x + y) % 2 ? "#0d1533" : "#111b3f";
+          ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+          ctx.strokeStyle = "rgba(255,255,255,0.03)";
+          ctx.strokeRect(x * TILE, y * TILE, TILE, TILE);
+        }
+      }
+
+      stage.walls.forEach(([x, y]) => drawTile(x, y, "#6f83f7"));
+      stage.gates.forEach(([x, y]) => drawTile(x, y, state.switchOn ? "#523f75" : "#d95cff"));
+
+      stage.fragile.forEach(([x, y]) => {
+        const k = key(x, y);
+        if (state.broken.has(k)) {
+          drawTile(x, y, "#392913");
+          ctx.strokeStyle = "#ffbf6e";
+          ctx.beginPath();
+          ctx.moveTo(x * TILE + 9, y * TILE + 9);
+          ctx.lineTo((x + 1) * TILE - 9, (y + 1) * TILE - 9);
+          ctx.stroke();
+        } else {
+          drawTile(x, y, "#f7a34a");
+        }
+      });
+
+      drawTile(stage.switch.x, stage.switch.y, stage.switchOn ? "#83f6ff" : "#47d4ff");
+      drawTile(stage.goal.x, stage.goal.y, "#5dff9f");
+
+      const centerX = state.x * TILE + TILE / 2;
+      const centerY = state.y * TILE + TILE / 2;
+      const radius = TILE * 0.33;
+
+      const gradient = ctx.createRadialGradient(centerX - 5, centerY - 6, 3, centerX, centerY, radius + 6);
+      if (state.mode === "normal") {
+        gradient.addColorStop(0, "#fff6d7");
+        gradient.addColorStop(0.55, "#ffd06f");
+        gradient.addColorStop(1, "#ec7f1f");
+      } else {
+        gradient.addColorStop(0, "#ecfbff");
+        gradient.addColorStop(0.55, "#8ff0ff");
+        gradient.addColorStop(1, "#2f6cff");
+      }
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(255,255,255,0.85)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    window.addEventListener("keydown", (e) => {
+      const keyName = e.key.toLowerCase();
+      if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "w", "a", "s", "d"].includes(keyName)) {
+        e.preventDefault();
+      }
+
+      if (keyName === "arrowup" || keyName === "w") move(0, -1);
+      else if (keyName === "arrowdown" || keyName === "s") move(0, 1);
+      else if (keyName === "arrowleft" || keyName === "a") move(-1, 0);
+      else if (keyName === "arrowright" || keyName === "d") move(1, 0);
+      else if (keyName === " ") toggleMode();
+    });
+
+    retryBtn.addEventListener("click", resetStage);
+    nextBtn.addEventListener("click", () => {
+      if (stageIndex < stages.length - 1) {
+        stageIndex += 1;
+        resetStage();
+      }
+    });
+
+    resetStage();
+  </script>
 </body>
 </html>
